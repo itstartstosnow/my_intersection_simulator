@@ -19,8 +19,17 @@ class MyPaintCanvas(QWidget):
         self.veh_timer.timeout.connect(self.update_traffic)
 
         self.load_scene_cfg()
+        self.draw_road_shape = self.cal_draw_road()
         # self.traffic = TrafficFlow()
         self.veh_time_step = 0
+
+        # 设置背景颜色
+        self.setAutoFillBackground(True)
+        palette = self.palette()
+        palette.setColor(self.backgroundRole(), QColor(247, 232, 232))
+        self.setPalette(palette)
+
+
 
     def load_scene_cfg(self):
         with open('res/scene.yaml', encoding='utf-8') as scene_cfg_file:
@@ -28,6 +37,8 @@ class MyPaintCanvas(QWidget):
             self.lw = scene_cfg['lane_width']
             self.tr = scene_cfg['turn_radius']
             self.al = scene_cfg['arm_len']
+            self.NSl = scene_cfg['NS_lanes']
+            self.EWl = scene_cfg['EW_lanes']
 
     def update_traffic(self):
         # self.traffic.update_all_veh(self.veh_time_step)        
@@ -38,48 +49,109 @@ class MyPaintCanvas(QWidget):
         qp = QPainter(self)
         qp.setRenderHint(QPainter.Antialiasing, True)  # 消除锯齿
 
-        viewport_len = min(self.width(), self.height())
-        qp.setViewport(0, 0, viewport_len, viewport_len) # 设置视窗正方形区域
-        window_len = (self.lw + self.tr + self.al) * 2
-        qp.setWindow(0, 0, window_len, window_len)
+        window_wid = (self.lw * self.NSl + self.tr + self.al) * 2
+        window_hgt = (self.lw * self.EWl + self.tr + self.al) * 2
+        if window_hgt / self.height() < window_wid / self.width(): 
+            # 高度方向比较宽松，宽度顶满
+            viewport_wid = self.width()
+            viewport_hgt = self.width() * window_hgt / window_wid
+        else:
+            # 宽度方向比较宽松，高度顶满
+            viewport_wid = self.height() * window_wid / window_hgt 
+            viewport_hgt = self.height()
+        # setViewport(x, y, w, h) 设置视窗在控件上的坐标，这里居中
+        qp.setViewport((self.width() - viewport_wid) / 2, (self.height() - viewport_hgt) / 2, viewport_wid, viewport_hgt)  
+        # setWindow(x, y, w, h) 设置逻辑坐标，这里把中间点作为 (0, 0) 
+        qp.setWindow(- window_wid / 2, - window_hgt / 2, window_wid, window_hgt)
 
-        self.draw_lane(qp)
+        self.draw_road(qp)
         self.draw_vehs(qp)
 
         self.mainw.step_lbl.setText("Timestep: %4d" % self.veh_time_step)
         self.mainw.time_lbl.setText("Elapsed time: %.1f s" % (self.veh_time_step * 0.2))
 
-    def draw_lane(self, qp):
-        qp.translate(self.lw + self.tr + self.al, self.lw + self.tr + self.al)
+    def cal_draw_road(self):
+        '''
+        在逻辑坐标系中计算交叉口绘制所需的形状参数
+        '''
+        x1 = self.lw * self.NSl
+        x2 = x1 + self.tr 
+        x3 = x2 + self.al
+        y1 = self.lw * self.EWl
+        y2 = y1 + self.tr
+        y3 = y2 + self.al
+        edge_lines = [
+            QLineF(-x3, -y1, -x2, -y1),  # 西上
+            QLineF(-x3, y1, -x2, y1),    # 西下
+            QLineF(x3, -y1, x2, -y1),    # 东上
+            QLineF(x3, y1, x2, y1),      # 东下
+            QLineF(-x1, -y3, -x1, -y2),  # 北左
+            QLineF(x1, -y3, x1, -y2),    # 北右
+            QLineF(-x1, y3, -x1, y2),    # 南左
+            QLineF(x1, y3, x1, y2)       # 南右
+        ]
+        edge_arcs = [
+            [QRectF(-x2-self.tr, -y2-self.tr, 2*self.tr, 2*self.tr), 270 * 16, 90 * 16], # 左上
+            [QRectF(x1, -y2-self.tr, 2*self.tr, 2*self.tr), 180 * 16, 90 * 16], # 右上
+            [QRectF(-x2-self.tr, y1, 2*self.tr, 2*self.tr), 0 * 16, 90 * 16], # 左下
+            [QRectF(x1, y1, 2*self.tr, 2*self.tr), 90 * 16, 90 * 16] # 右下
+        ]
+        center_lines = [
+            QLineF(-x3, 0, -x2, 0),       # 西
+            QLineF(x3, 0, x2, 0),         # 东
+            QLineF(0, -y3, 0, -y2),       # 北
+            QLineF(0, y3, 0, y2)          # 南
+        ]
+        stop_lines = [
+            QLineF(-x2, 0, -x2, y1),          # 西
+            QLineF(x2, 0, x2, -y1),           # 东
+            QLineF(0, -y2, -x1, -y2),         # 北
+            QLineF(0, y2, x1, y2)             # 南
+        ]
+        lane_lines = []
+        if self.EWl > 1:
+            for i in range(self.EWl - 1):
+                lane_lines.append(QLineF(-x3, - (i+1) * self.lw, -x2, - (i+1) * self.lw)) # 西上
+                lane_lines.append(QLineF(-x3, (i+1) * self.lw, -x2, (i+1) * self.lw))     # 西下
+                lane_lines.append(QLineF(x3, - (i+1) * self.lw, x2, - (i+1) * self.lw))   # 东上
+                lane_lines.append(QLineF(x3, (i+1) * self.lw, x2, (i+1) * self.lw))       # 东下
+        if self.NSl > 1:
+            for i in range(self.NSl - 1):
+                lane_lines.append(QLineF(- (i+1) * self.lw, -y3, - (i+1) * self.lw, -y2)) # 北左
+                lane_lines.append(QLineF((i+1) * self.lw, -y3, (i+1) * self.lw, -y2))     # 北右
+                lane_lines.append(QLineF(- (i+1) * self.lw, y3, - (i+1) * self.lw, y2))   # 南左
+                lane_lines.append(QLineF((i+1) * self.lw, y3, (i+1) * self.lw, y2))       # 南右
+        return {
+            'edge_lines': edge_lines,
+            'edge_arcs': edge_arcs,
+            'center_lines': center_lines,
+            'lane_lines': lane_lines,
+            'stop_lines': stop_lines
+        }
 
+    def draw_road(self, qp):
         # 交叉口边缘
-        qp.setPen(QPen(QColor("darkGrey"), 0.1, Qt.SolidLine))
-        qp.drawLine(QLineF(-self.tr-self.lw-self.al, -self.lw, -self.tr-self.lw, -self.lw))  # 西上
-        qp.drawLine(QLineF(-self.tr-self.lw-self.al, self.lw, -self.tr-self.lw, self.lw))    # 西下
-        qp.drawLine(QLineF(self.tr+self.al+self.lw, -self.lw, self.tr+self.lw, -self.lw))    # 东上
-        qp.drawLine(QLineF(self.tr+self.al+self.lw, self.lw, self.tr+self.lw, self.lw))      # 东下
-        qp.drawLine(QLineF(-self.lw, -self.tr-self.al-self.lw, -self.lw, -self.tr-self.lw))  # 北左
-        qp.drawLine(QLineF(self.lw, -self.tr-self.al-self.lw, self.lw, -self.tr-self.lw))    # 北右
-        qp.drawLine(QLineF(-self.lw, self.tr+self.al+self.lw, -self.lw, self.tr+self.lw))    # 南左
-        qp.drawLine(QLineF(self.lw, self.tr+self.al+self.lw, self.lw, self.tr+self.lw))      # 南右
-        qp.drawArc(QRectF(-self.lw-2*self.tr, -self.lw-2*self.tr, 2*self.tr, 2*self.tr), 270 * 16, 90 * 16) # 左上
-        qp.drawArc(QRectF(self.lw, -self.lw-2*self.tr, 2*self.tr, 2*self.tr), 180 * 16, 90 * 16)            # 右上
-        qp.drawArc(QRectF(-self.lw-2*self.tr, self.lw, 2*self.tr, 2*self.tr), 0 * 16, 90 * 16)              # 左下
-        qp.drawArc(QRectF(self.lw, self.lw, 2*self.tr, 2*self.tr), 90 * 16, 90 * 16)                        # 右下
+        qp.setPen(QPen(QColor(49, 58, 135), 0.4, Qt.SolidLine))
+        for ele in self.draw_road_shape['edge_lines']:
+            qp.drawLine(ele)
+        for ele in self.draw_road_shape['edge_arcs']:
+            qp.drawArc(ele[0], ele[1], ele[2])                      
 
         # 车道中心线
-        qp.setPen(QPen(QColor("darkGrey"), 0.05, Qt.SolidLine))
-        qp.drawLine(QLineF(-self.tr-self.al-self.lw, 0, -self.tr-self.lw, 0))         # 西
-        qp.drawLine(QLineF(self.tr+self.al+self.lw, 0, self.tr+self.lw, 0))           # 东
-        qp.drawLine(QLineF(0, -self.tr-self.al-self.lw, 0, -self.tr-self.lw))         # 北
-        qp.drawLine(QLineF(0, self.tr+self.al+self.lw, 0, self.tr+self.lw))           # 南
+        qp.setPen(QPen(QColor(242, 184, 0), 0.2, Qt.SolidLine))
+        for ele in self.draw_road_shape['center_lines']:
+            qp.drawLine(ele)
+
+        # 车道线
+        qp.setPen(QPen(QColor("white"), 0.2, Qt.SolidLine))
+        for ele in self.draw_road_shape['lane_lines']:
+            qp.drawLine(ele)
 
         # 停车线
-        qp.setPen(QPen(QColor("lightGrey"), 0.2, Qt.SolidLine))
-        qp.drawLine(QLineF(-self.tr-self.lw, 0, -self.tr-self.lw, self.lw))          # 西
-        qp.drawLine(QLineF(self.tr+self.lw, 0, self.tr+self.lw, -self.lw))           # 东
-        qp.drawLine(QLineF(0, -self.tr-self.lw, -self.lw, -self.tr-self.lw))         # 北
-        qp.drawLine(QLineF(0, self.tr+self.lw, self.lw, self.tr+self.lw))            # 南
+        qp.setPen(QPen(QColor(244, 82, 79), 0.2, Qt.SolidLine))
+        for ele in self.draw_road_shape['stop_lines']:
+            qp.drawLine(ele)
+
     
     def draw_vehs(self, qp):
         pass
@@ -108,14 +180,14 @@ class MyPaintCanvas(QWidget):
             
             
             # 画车辆
-            lanecenter_bottom = - self.lw * (cfg['num_of_lanes'] - 1) / 2
+            lanecenter_bottom = - self.lw*self.NSl * (cfg['num_of_lanes'] - 1) / 2
             for lane in range(cfg['num_of_lanes']):
                 for vehicle in self.traffic.vehicles[lane]:
                     qp.save()
                     qp.setBrush(QColor(80, 80, 80))
-                    y = lanecenter_bottom + lane * self.lw - vehicle.veh_wid / 2
+                    y = lanecenter_bottom + lane * self.lw*self.NSl - vehicle.veh_wid / 2
                     if vehicle.time_after_lc < 4:                           # 换道的过渡
-                        y -= vehicle.last_lc_dir * (4 - vehicle.time_after_lc) / 4 * self.lw
+                        y -= vehicle.last_lc_dir * (4 - vehicle.time_after_lc) / 4 * self.lw*self.NSl
                     qp.drawRect(QRectF(vehicle.inst_x - vehicle.veh_len / 2, y, vehicle.veh_len, vehicle.veh_wid))
                     qp.restore()
 '''
