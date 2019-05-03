@@ -24,7 +24,9 @@ class MyPaintCanvas(QWidget):
         self.draw_road_shape = self.gen_draw_road()
         self.all_traj = self.gen_all_traj()
         self.draw_traj_shape = self.gen_draw_traj(self.all_traj)
+
         # self.traffic = TrafficFlow()
+
         self.veh_time_step = 0
 
         # 设置背景颜色
@@ -32,9 +34,6 @@ class MyPaintCanvas(QWidget):
         palette = self.palette()
         palette.setColor(self.backgroundRole(), QColor(247, 232, 232))
         self.setPalette(palette)
-
-
-
 
 
     def update_traffic(self):
@@ -62,7 +61,7 @@ class MyPaintCanvas(QWidget):
         qp.setWindow(- window_wid / 2, - window_hgt / 2, window_wid, window_hgt)
 
         self.draw_road(qp)
-        self.draw_traj(qp) # 显示轨迹，调试用
+        # self.draw_traj(qp) # 显示轨迹，调试用
         self.draw_vehs(qp)
 
         self.mainw.step_lbl.setText("Timestep: %4d" % self.veh_time_step)
@@ -143,6 +142,7 @@ class MyPaintCanvas(QWidget):
         y2 = y1 + self.tr
 
         all_traj = {}
+        # 转弯的情况
         for i in range(self.EWl): # 从/到东西
             for j in range(self.NSl): # 从/到南北
                 x4 = self.lw / 2 + self.lw * j   # 始/末位置的x坐标绝对值
@@ -157,9 +157,26 @@ class MyPaintCanvas(QWidget):
                 all_traj['Nr'+str(i)+str(j)] = gen_traj(xa=-x4, ya=-y2, xb=-x2, yb=-y4, ap_arm='N', dir='r')
                 all_traj['Sl'+str(i)+str(j)] = gen_traj(xa=x4, ya=y2, xb=-x2, yb=-y4, ap_arm='S', dir='l')
                 all_traj['Sr'+str(i)+str(j)] = gen_traj(xa=x4, ya=y2, xb=x2, yb=y4, ap_arm='S', dir='r')
+        # 东西直行
+        for i in range(self.EWl): # 从i道
+            for j in range(self.EWl): # 到j道
+                y_start = self.lw / 2 + self.lw * i # 起始位置y坐标绝对值
+                y_end = self.lw / 2 + self.lw * j   # 结束位置y坐标绝对值
+                all_traj['Wt'+str(i)+str(j)] = gen_traj(xa=-x2, ya=y_start, xb=x2, yb=y_end, ap_arm='W', dir='t')
+                all_traj['Et'+str(i)+str(j)] = gen_traj(xa=x2, ya=-y_start, xb=-x2, yb=-y_end, ap_arm='E', dir='t')
+        # 南北直行
+        for i in range(self.NSl): # 从i道
+            for j in range(self.NSl): # 到j道
+                x_start = self.lw / 2 + self.lw * i # 起始位置x坐标绝对值
+                x_end = self.lw / 2 + self.lw * j   # 结束位置x坐标绝对值
+                all_traj['Nt'+str(i)+str(j)] = gen_traj(xa=-x_start, ya=-y2, xb=-x_end, yb=y2, ap_arm='N', dir='t')
+                all_traj['St'+str(i)+str(j)] = gen_traj(xa=x_start, ya=y2, xb=x_end, yb=-y2, ap_arm='S', dir='t')
         return all_traj
 
     def gen_draw_traj(self, all_traj):
+        '''
+        根据轨迹，生成用于画图的lines和arcs
+        '''
         traj_Qlines = []
         traj_Qarcs = []
         for key in all_traj:
@@ -167,8 +184,11 @@ class MyPaintCanvas(QWidget):
                 if seg[0] == 'line':
                     traj_Qlines.append(QLineF(seg[1][0], seg[1][1], seg[2][0], seg[2][1]))
                 else:
-                    traj_Qarcs.append([QRectF(seg[3][0]-seg[4], seg[3][1]-seg[4], 2*seg[4], 2*seg[4]), min(seg[5][0], seg[5][1])*16, 90*16])
-
+                    traj_Qarcs.append([
+                        QRectF(seg[3][0]-seg[4], seg[3][1]-seg[4], 2*seg[4], 2*seg[4]), 
+                        min(seg[5][0], seg[5][1]) * 16, 
+                        math.fabs(seg[5][0] - seg[5][1]) * 16
+                    ])
         return {
             'traj_Qlines': traj_Qlines,
             'traj_Qarcs': traj_Qarcs
@@ -198,7 +218,7 @@ class MyPaintCanvas(QWidget):
             qp.drawLine(ele)
 
     def draw_traj(self, qp):
-        qp.setPen(QPen(QColor(28, 33, 63), 0.2, Qt.SolidLine))
+        qp.setPen(QPen(QColor('darkGrey'), 0.2, Qt.SolidLine))
         for ele in self.draw_traj_shape['traj_Qlines']:
             qp.drawLine(ele)
         for ele in self.draw_traj_shape['traj_Qarcs']:

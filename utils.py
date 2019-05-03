@@ -8,7 +8,7 @@ ap_arm - approach arm, 'NSEW'
 dir - direction, 'lrt'
 '''
 def gen_traj(xa, ya, xb, yb, ap_arm, dir):
-    
+    # 转弯，轨迹由相切的直线和圆曲线组成
     if dir == 'l' or dir == 'r':
         # 先根据转弯的方向，确定圆曲线的角度范围，角度的规定与数学中相同
         if ap_arm == 'N': 
@@ -32,8 +32,8 @@ def gen_traj(xa, ya, xb, yb, ap_arm, dir):
             else:
                 angle = (90, 0)
 
-        x_diff = math.fabs(xb - xa)
-        y_diff = math.fabs(yb - ya)
+        x_diff = abs(xb - xa)
+        y_diff = abs(yb - ya)
 
         # 对于EW转向NS的车，直线段当x_diff小时出出现在终点附近，y_diff小时在起点附近
         if ap_arm == 'E' or ap_arm == 'W':
@@ -99,8 +99,65 @@ def gen_traj(xa, ya, xb, yb, ap_arm, dir):
                     ['line', (xa, ya), junc], # 直线，起点xy，终点xy
                     ['arc', junc, (xb, yb), center, r, angle] # 圆曲线，起点xy，终点xy，圆心，半径，角度始末
                 ]
-    elif dir == 't': # 直行
-        pass
+    # 直行，轨迹由一条直线或相切的两条圆曲线组成
+    elif dir == 't': 
+        # 直行到与之对照的车道，直线轨迹即可
+        if abs(xa - xb) < 1e-5 or abs(ya - yb) < 1e-5: 
+            return [
+                ['line', (xa, ya), (xb, yb)]
+            ]
+        # 车道不对应，由两条圆曲线组成
+        elif ap_arm == 'N' or ap_arm == 'S':
+            half_x_diff = abs(xa - xb) / 2
+            half_y_diff = abs(ya - yb) / 2
+            r = (half_x_diff ** 2 + half_y_diff ** 2) / (2 * half_x_diff)
+            alpha = math.asin(half_y_diff / r) / math.pi * 180
+            if ap_arm == 'S' and xb > xa:
+                return [
+                    ['arc', (xa, ya), ((xa+xb)/2, (ya+yb)/2), (xa + r, ya), r, (180, 180 - alpha)],
+                    ['arc', ((xa+xb)/2, (ya+yb)/2), (xb, yb), (xb - r, yb), r, (360 - alpha, 360)]
+                ]
+            elif ap_arm == 'S' and xb < xa:
+                return [
+                    ['arc', (xa, ya), ((xa+xb)/2, (ya+yb)/2), (xa - r, ya), r, (0, alpha)],
+                    ['arc', ((xa+xb)/2, (ya+yb)/2), (xb, yb), (xb + r, yb), r, (180 + alpha, 180)]
+                ]
+            elif ap_arm == 'N' and xb > xa: 
+                return [
+                    ['arc', (xa, ya), ((xa+xb)/2, (ya+yb)/2), (xa + r, ya), r, (180, 180 + alpha)],
+                    ['arc', ((xa+xb)/2, (ya+yb)/2), (xb, yb), (xb - r, yb), r, (alpha, 0)]
+                ]
+            elif ap_arm == 'N' and xb < xa: 
+                return [
+                    ['arc', (xa, ya), ((xa+xb)/2, (ya+yb)/2), (xa - r, ya), r, (360, 360 - alpha)],
+                    ['arc', ((xa+xb)/2, (ya+yb)/2), (xb, yb), (xb + r, yb), r, (180 - alpha, 180)]
+                ]
+        elif ap_arm == 'E' or ap_arm == 'W':
+            half_x_diff = abs(xa - xb) / 2
+            half_y_diff = abs(ya - yb) / 2
+            r = (half_x_diff ** 2 + half_y_diff ** 2) / (2 * half_y_diff)
+            alpha = math.asin(half_x_diff / r) / math.pi * 180
+            if ap_arm == 'E' and ya > yb: 
+                return [
+                    ['arc', (xa, ya), ((xa+xb)/2, (ya+yb)/2), (xa, ya - r), r, (270, 270 - alpha)],
+                    ['arc', ((xa+xb)/2, (ya+yb)/2), (xb, yb), (xb, yb + r), r, (90 - alpha, 90)]
+                ]
+            elif ap_arm == 'E' and ya < yb: 
+                return [
+                    ['arc', (xa, ya), ((xa+xb)/2, (ya+yb)/2), (xa, ya + r), r, (90, 90 + alpha)],
+                    ['arc', ((xa+xb)/2, (ya+yb)/2), (xb, yb), (xb, yb - r), r, (270 + alpha, 270)]
+                ]
+            elif ap_arm == 'W' and ya > yb: 
+                return [
+                    ['arc', (xa, ya), ((xa+xb)/2, (ya+yb)/2), (xa, ya - r), r, (270, 270 + alpha)],
+                    ['arc', ((xa+xb)/2, (ya+yb)/2), (xb, yb), (xb, yb + r), r, (90 + alpha, 90)]
+                ]
+            elif ap_arm == 'W' and ya < yb: 
+                return [
+                    ['arc', (xa, ya), ((xa+xb)/2, (ya+yb)/2), (xa, ya + r), r, (90, 90 - alpha)],
+                    ['arc', ((xa+xb)/2, (ya+yb)/2), (xb, yb), (xb, yb - r), r, (270 - alpha, 270)]
+                ]
+
 
 
 

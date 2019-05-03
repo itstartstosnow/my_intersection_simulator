@@ -1,5 +1,5 @@
 lane_width: 3.5
 turn_radius: 3
-arm_len: 50
+arm_len: 20
 NS_lanes: 2
-EW_lanes: 3
+EW_lanes: 2
