@@ -1,8 +1,9 @@
 import yaml
 import math
 
-# from traffic_flow import TrafficFlow
-from utils import gen_traj
+from map import Map
+# from simulator import Simulator
+from lib.settings import lane_width, turn_radius, arm_len, NS_lane_count, EW_lane_count, veh_dt, disp_dt
 
 from PyQt5.QtCore import Qt, QTimer, QPointF, QRectF, QLineF
 from PyQt5.QtGui import QPainter, QColor, QPen
@@ -14,20 +15,22 @@ class MyPaintCanvas(QWidget):
         self.mainw = mainw
 
         self.disp_timer = QTimer(self)
-        self.disp_timer.start(0.025 * 1000)
+        self.disp_timer.start(disp_dt * 1000)
         self.disp_timer.timeout.connect(self.update)  # 每次 update 触发 paintEvent
         self.veh_timer = QTimer(self)
-        self.veh_timer.start(0.2 * 1000)
+        self.veh_timer.start(veh_dt * 1000)
         self.veh_timer.timeout.connect(self.update_traffic)
 
-        self.load_scene_cfg()
+        self.lw = lane_width
+        self.tr = turn_radius
+        self.al = arm_len
+        self.NSl = NS_lane_count
+        self.EWl = EW_lane_count
+
         self.draw_road_shape = self.gen_draw_road()
-        self.all_traj = self.gen_all_traj()
-        self.draw_traj_shape = self.gen_draw_traj(self.all_traj)
+        self.draw_traj_shape = self.gen_draw_traj(Map.getInstance().ju_track_table)
 
-        # self.traffic = TrafficFlow()
-
-        self.veh_time_step = 0
+        self.veh_timestep = 0
 
         # 设置背景颜色
         self.setAutoFillBackground(True)
@@ -37,8 +40,8 @@ class MyPaintCanvas(QWidget):
 
 
     def update_traffic(self):
-        # self.traffic.update_all_veh(self.veh_time_step)        
-        self.veh_time_step += 1 
+        # Simulator.getInstance().update(self.veh_timestep)        
+        self.veh_timestep += 1 
         # print('update_traffic: %f s' % (time.time() - t0))
 
     def paintEvent(self, event): # 每次 disp_timer timeout 的时候调用，重绘
@@ -61,20 +64,11 @@ class MyPaintCanvas(QWidget):
         qp.setWindow(- window_wid / 2, - window_hgt / 2, window_wid, window_hgt)
 
         self.draw_road(qp)
-        # self.draw_traj(qp) # 显示轨迹，调试用
+        self.draw_traj(qp) # 显示轨迹，调试用
         self.draw_vehs(qp)
 
-        self.mainw.step_lbl.setText("Timestep: %4d" % self.veh_time_step)
-        self.mainw.time_lbl.setText("Elapsed time: %.1f s" % (self.veh_time_step * 0.2))
-
-    def load_scene_cfg(self): 
-        with open('res/scene.yaml', encoding='utf-8') as scene_cfg_file:
-            scene_cfg = yaml.load(scene_cfg_file, Loader=yaml.FullLoader)
-            self.lw = scene_cfg['lane_width']
-            self.tr = scene_cfg['turn_radius']
-            self.al = scene_cfg['arm_len']
-            self.NSl = scene_cfg['NS_lanes']
-            self.EWl = scene_cfg['EW_lanes']
+        self.mainw.step_lbl.setText("Timestep: %4d" % self.veh_timestep)
+        self.mainw.time_lbl.setText("Elapsed time: %.1f s" % (self.veh_timestep * 0.2))
     
     def gen_draw_road(self):
         '''
@@ -135,52 +129,14 @@ class MyPaintCanvas(QWidget):
             'stop_Qlines': stop_Qlines
         }
 
-    def gen_all_traj(self):
-        x1 = self.lw * self.NSl
-        x2 = x1 + self.tr 
-        y1 = self.lw * self.EWl
-        y2 = y1 + self.tr
-
-        all_traj = {}
-        # 转弯的情况
-        for i in range(self.EWl): # 从/到东西
-            for j in range(self.NSl): # 从/到南北
-                x4 = self.lw / 2 + self.lw * j   # 始/末位置的x坐标绝对值
-                y4 = self.lw / 2 + self.lw * i   # 始/末位置的y坐标绝对值
-                # 从东西方向到南北方向
-                all_traj['Wl'+str(i)+str(j)] = gen_traj(xa=-x2, ya=y4, xb=x4, yb=-y2, ap_arm='W', dir='l')
-                all_traj['Wr'+str(i)+str(j)] = gen_traj(xa=-x2, ya=y4, xb=-x4, yb=y2, ap_arm='W', dir='r')
-                all_traj['El'+str(i)+str(j)] = gen_traj(xa=x2, ya=-y4, xb=-x4, yb=y2, ap_arm='E', dir='l')
-                all_traj['Er'+str(i)+str(j)] = gen_traj(xa=x2, ya=-y4, xb=x4, yb=-y2, ap_arm='E', dir='r')
-                # 从南北方向到东西方向
-                all_traj['Nl'+str(i)+str(j)] = gen_traj(xa=-x4, ya=-y2, xb=x2, yb=y4, ap_arm='N', dir='l')
-                all_traj['Nr'+str(i)+str(j)] = gen_traj(xa=-x4, ya=-y2, xb=-x2, yb=-y4, ap_arm='N', dir='r')
-                all_traj['Sl'+str(i)+str(j)] = gen_traj(xa=x4, ya=y2, xb=-x2, yb=-y4, ap_arm='S', dir='l')
-                all_traj['Sr'+str(i)+str(j)] = gen_traj(xa=x4, ya=y2, xb=x2, yb=y4, ap_arm='S', dir='r')
-        # 东西直行
-        for i in range(self.EWl): # 从i道
-            for j in range(self.EWl): # 到j道
-                y_start = self.lw / 2 + self.lw * i # 起始位置y坐标绝对值
-                y_end = self.lw / 2 + self.lw * j   # 结束位置y坐标绝对值
-                all_traj['Wt'+str(i)+str(j)] = gen_traj(xa=-x2, ya=y_start, xb=x2, yb=y_end, ap_arm='W', dir='t')
-                all_traj['Et'+str(i)+str(j)] = gen_traj(xa=x2, ya=-y_start, xb=-x2, yb=-y_end, ap_arm='E', dir='t')
-        # 南北直行
-        for i in range(self.NSl): # 从i道
-            for j in range(self.NSl): # 到j道
-                x_start = self.lw / 2 + self.lw * i # 起始位置x坐标绝对值
-                x_end = self.lw / 2 + self.lw * j   # 结束位置x坐标绝对值
-                all_traj['Nt'+str(i)+str(j)] = gen_traj(xa=-x_start, ya=-y2, xb=-x_end, yb=y2, ap_arm='N', dir='t')
-                all_traj['St'+str(i)+str(j)] = gen_traj(xa=x_start, ya=y2, xb=x_end, yb=-y2, ap_arm='S', dir='t')
-        return all_traj
-
-    def gen_draw_traj(self, all_traj):
+    def gen_draw_traj(self, ju_track_table):
         '''
         根据轨迹，生成用于画图的lines和arcs
         '''
         traj_Qlines = []
         traj_Qarcs = []
-        for key in all_traj:
-            for seg in all_traj[key]:
+        for dir, shape_list in ju_track_table.items():
+            for seg in shape_list:
                 if seg[0] == 'line':
                     traj_Qlines.append(QLineF(seg[1][0], seg[1][1], seg[2][0], seg[2][1]))
                 else:
