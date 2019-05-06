@@ -2,7 +2,7 @@ import yaml
 import math
 
 from map import Map
-# from simulator import Simulator
+from simulator import Simulator
 from lib.settings import lane_width, turn_radius, arm_len, NS_lane_count, EW_lane_count, veh_dt, disp_dt
 
 from PyQt5.QtCore import Qt, QTimer, QPointF, QRectF, QLineF
@@ -30,19 +30,14 @@ class MyPaintCanvas(QWidget):
         self.draw_road_shape = self.gen_draw_road()
         self.draw_traj_shape = self.gen_draw_traj(Map.getInstance().ju_track_table)
 
-        self.veh_timestep = 0
-
         # 设置背景颜色
         self.setAutoFillBackground(True)
         palette = self.palette()
         palette.setColor(self.backgroundRole(), QColor(247, 232, 232))
         self.setPalette(palette)
 
-
     def update_traffic(self):
-        # Simulator.getInstance().update(self.veh_timestep)        
-        self.veh_timestep += 1 
-        # print('update_traffic: %f s' % (time.time() - t0))
+        Simulator.getInstance().update()
 
     def paintEvent(self, event): # 每次 disp_timer timeout 的时候调用，重绘
         qp = QPainter(self)
@@ -67,8 +62,8 @@ class MyPaintCanvas(QWidget):
         self.draw_traj(qp) # 显示轨迹，调试用
         self.draw_vehs(qp)
 
-        self.mainw.step_lbl.setText("Timestep: %4d" % self.veh_timestep)
-        self.mainw.time_lbl.setText("Elapsed time: %.1f s" % (self.veh_timestep * 0.2))
+        self.mainw.step_lbl.setText("Timestep: %4d" % Simulator.getInstance().timestep)
+        self.mainw.time_lbl.setText("Elapsed time: %.1f s" % (Simulator.getInstance().timestep * veh_dt))
     
     def gen_draw_road(self):
         '''
@@ -181,40 +176,81 @@ class MyPaintCanvas(QWidget):
             qp.drawArc(ele[0], ele[1], ele[2]) 
     
     def draw_vehs(self, qp):
-        pass
-
-'''
-    def draw(self, qp):
-        if cfg['circular']: # 圆形只支持一条车道，因为多条车道会涉及每圈路程不同的问题
-            qp.translate(self.logical_r, self.logical_r)  # 逻辑坐标系原点切换至正中间 
-            
-            # 画车道边缘 - 圆圈
-            pen = QPen(QColor("darkGray"), 0.5, Qt.SolidLine)
-            qp.setPen(pen)
-            inner_r = self.ring_radius - 1.75
-            outer_r = self.ring_radius + 1.75
-            qp.drawEllipse(QPointF(0.0, 0.0), inner_r, inner_r)
-            qp.drawEllipse(QPointF(0.0, 0.0), outer_r, outer_r)
-            
-            # 画车辆
-            for vehicle in self.traffic.vehicles[0]:
+        qp.setBrush(QColor(49, 58, 135))
+        x1 = self.lw * self.NSl
+        x2 = x1 + self.tr 
+        y1 = self.lw * self.EWl
+        y2 = y1 + self.tr
+        for veh in Simulator.getInstance().all_veh['Nap']: 
+            x = - (self.lw / 2 + self.lw * veh.inst_lane)
+            y = - (y2 + (-veh.inst_x))
+            qp.drawRect(QRectF(x - veh.veh_wid/2, y - veh.veh_len, veh.veh_wid, veh.veh_len))
+        for veh in Simulator.getInstance().all_veh['Nex']: 
+            x = self.lw / 2 + self.lw * veh.inst_lane
+            y = - (y2 + (veh.inst_x))
+            qp.drawRect(QRectF(x - veh.veh_wid/2, y, veh.veh_wid, veh.veh_len))
+        for veh in Simulator.getInstance().all_veh['Sap']:
+            x = self.lw / 2 + self.lw * veh.inst_lane
+            y = y2 + (-veh.inst_x)
+            qp.drawRect(QRectF(x - veh.veh_wid/2, y, veh.veh_wid, veh.veh_len))
+        for veh in Simulator.getInstance().all_veh['Sex']:
+            x = - (self.lw / 2 + self.lw * veh.inst_lane)
+            y = y2 + veh.inst_x
+            qp.drawRect(QRectF(x - veh.veh_wid/2, y - veh.veh_len, veh.veh_wid, veh.veh_len))
+        for veh in Simulator.getInstance().all_veh['Wap']:
+            x = - (x2 + (-veh.inst_x))
+            y = self.lw / 2 + self.lw * veh.inst_lane
+            qp.drawRect(QRectF(x - veh.veh_len, y - veh.veh_wid/2, veh.veh_len, veh.veh_wid))
+        for veh in Simulator.getInstance().all_veh['Wex']:
+            x = - (x2 + veh.inst_x)
+            y = - (self.lw / 2 + self.lw * veh.inst_lane)
+            qp.drawRect(QRectF(x, y - veh.veh_wid/2, veh.veh_len, veh.veh_wid))
+        for veh in Simulator.getInstance().all_veh['Eap']:
+            x = x2 + (-veh.inst_x)
+            y = - (self.lw / 2 + self.lw * veh.inst_lane)
+            qp.drawRect(QRectF(x, y - veh.veh_wid/2, veh.veh_len, veh.veh_wid)) 
+        for veh in Simulator.getInstance().all_veh['Eex']:
+            x = x2 + veh.inst_x
+            y = self.lw / 2 + self.lw * veh.inst_lane
+            qp.drawRect(QRectF(x - veh.veh_len, y - veh.veh_wid/2, veh.veh_len, veh.veh_wid)) 
+        for veh in Simulator.getInstance().all_veh['ju']:
+            # 寻找在哪一段上 
+            seg_idx = 0
+            for (i, end_x) in enumerate(veh.track.ju_shape_end_x): 
+                if veh.inst_x > end_x: # 比第i段的终点大，则在(i+1)段
+                    seg_idx = i + 1
+                    break
+            seg = veh.track.ju_track[seg_idx] # 这一段的形状
+            if seg_idx > 0:
+                seg_x = veh.inst_x - veh.track.ju_shape_end_x[seg_idx - 1] # 在这一段的长度
+            else:
+                seg_x = veh.inst_x
+            if seg[0] == 'line': # 是直线，太好了
+                if abs(seg[1][0] - seg[2][0]) < 1e-5: # 竖线
+                    x = seg[1][0]
+                    if seg[1][1] < seg[2][1]: # 从上到下
+                        y = seg[1][1] + seg_x
+                        qp.drawRect(QRectF(x - veh.veh_wid/2, y - veh.veh_len, veh.veh_wid, veh.veh_len)) 
+                    else: # 从下到上
+                        y = seg[1][1] - seg_x
+                        qp.drawRect(QRectF(x - veh.veh_wid/2, y, veh.veh_wid, veh.veh_len)) 
+                else: # 横线 
+                    y = seg[1][1]
+                    if seg[1][0] < seg[2][0]: # 从左向右
+                        x = seg[1][0] + seg_x
+                        qp.drawRect(QRectF(x - veh.veh_len, y - veh.veh_wid/2, veh.veh_len, veh.veh_wid)) 
+                    else: # 从右向左
+                        x = seg[1][0] - seg_x
+                        qp.drawRect(QRectF(x, y - veh.veh_wid/2, veh.veh_len, veh.veh_wid)) 
+            else: # 圆曲线
                 qp.save()
-                qp.setBrush(self.get_color(vehicle.inst_v))
-                qp.rotate(self.tr60 - vehicle.inst_x / self.ring_radius / np.pi * 180)
-                qp.drawRect(QRectF(self.ring_radius - vehicle.veh_wid/2, - vehicle.veh_len/2, vehicle.veh_wid, vehicle.veh_len))
+                qp.translate(seg[3][0], seg[3][1])
+                if seg[5][0] < seg[5][1]: # 轨迹逆时针
+                    rotation = seg[5][0] + seg_x / seg[4] * 180 / math.pi
+                    qp.rotate(- rotation) # rotate 是顺时针的度数
+                    qp.drawRect(QRectF(seg[4] - veh.veh_wid/2, 0, veh.veh_wid, veh.veh_len))
+                else:
+                    rotation = seg[5][0] - seg_x / seg[4] * 180 / math.pi
+                    qp.rotate(- rotation)
+                    qp.drawRect(QRectF(seg[4] - veh.veh_wid/2, -veh.veh_len, veh.veh_wid, veh.veh_len))
                 qp.restore()
-        else:
-            
-            
-            # 画车辆
-            lanecenter_bottom = - self.lw*self.NSl * (cfg['num_of_lanes'] - 1) / 2
-            for lane in range(cfg['num_of_lanes']):
-                for vehicle in self.traffic.vehicles[lane]:
-                    qp.save()
-                    qp.setBrush(QColor(80, 80, 80))
-                    y = lanecenter_bottom + lane * self.lw*self.NSl - vehicle.veh_wid / 2
-                    if vehicle.time_after_lc < 4:                           # 换道的过渡
-                        y -= vehicle.last_lc_dir * (4 - vehicle.time_after_lc) / 4 * self.lw*self.NSl
-                    qp.drawRect(QRectF(vehicle.inst_x - vehicle.veh_len / 2, y, vehicle.veh_len, vehicle.veh_wid))
-                    qp.restore()
-'''
