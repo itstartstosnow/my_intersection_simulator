@@ -3,7 +3,7 @@ from my_paint_canvas import MyPaintCanvas
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon                
-from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QMenu, QAction, QLabel
+from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QMenu, QAction, QLabel, QMessageBox
 
 class MyMainWindow(QMainWindow):
     '''

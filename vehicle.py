@@ -15,6 +15,8 @@ class Vehicle:
         self._id = id
         self.veh_wid = veh_param['veh_wid']
         self.veh_len = veh_param['veh_len']
+        self.veh_len_front = veh_param['veh_len_front']
+        self.veh_len_back = veh_param['veh_len_back']
         self.max_v = veh_param['max_v']
         self.max_acc = veh_param['max_acc']
         self.max_dec = veh_param['max_dec']
@@ -51,7 +53,7 @@ class Vehicle:
             else:
                 if not lead_veh:
                     # 认为停车线位置是前车，且速度为 0
-                    self.inst_a = self.cf_model.acc_from_model(self.inst_v, - self.inst_x, 0) 
+                    self.inst_a = self.cf_model.acc_from_model(self.inst_v, - self.inst_x - self.veh_len_front, 0) 
                 else:
                     # 有前车
                     s = lead_veh.inst_x - self.inst_x - lead_veh.veh_len

@@ -76,7 +76,7 @@ class Simulator:
         for group, vehs in self.all_veh.items():
             if group[-2:] == 'ex':
                 for veh in vehs:
-                    if veh.inst_x > arm_len + veh.veh_len:
+                    if veh.inst_x > arm_len + veh.veh_len_back:
                         to_delete.append([group, veh])
         for group, veh in to_delete:
             self.all_veh[group].remove(veh)

@@ -3,14 +3,16 @@ veh_dt = 0.1
 disp_dt = 0.04
 
 lane_width = 3.5
-turn_radius = 4 # 美国城市街道设计指南要求一般城市道路交叉口转角半径采用3~4.5m
-arm_len = 30
+turn_radius = 6 # 美国城市街道设计指南要求一般城市道路交叉口转角半径采用3~4.5m
+arm_len = 100
 NS_lane_count = 3
 EW_lane_count = 3
 
 veh_param = {
     'veh_wid': 2,
     'veh_len': 4.8,
+    'veh_len_front': 1,      # 前保险杠到前轮轴的距离
+    'veh_len_back': 4.8 - 1, # 前轮轴到后保险杠的距离
     'max_v': 33,
     'max_acc': 3,
     'max_dec': 6,
