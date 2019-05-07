@@ -57,15 +57,13 @@ class Vehicle:
                     s = lead_veh.inst_x - self.inst_x - lead_veh.veh_len
                     v_l = lead_veh.inst_v
                     self.inst_a = self.cf_model.acc_from_model(self.inst_v, s, v_l)
-        elif self.zone == 'ex':
+        elif self.zone == 'ex' or 'ju':
             if not lead_veh:
                 self.inst_a = self.cf_model.acc_from_model(self.inst_v, 1e3, self.cf_model.v0)
             else: 
                 s = lead_veh.inst_x - self.inst_x - lead_veh.veh_len
                 v_l = lead_veh.inst_v
                 self.inst_a = self.cf_model.acc_from_model(self.inst_v, s, v_l)
-        elif self.zone == 'ju':
-            self.inst_a = (self.cf_model.v0 - self.inst_v) / 5
             
         # 根据车辆性能，限制一下最大最小
         self.inst_a = min(max(self.inst_a, - self.max_dec), self.max_acc)

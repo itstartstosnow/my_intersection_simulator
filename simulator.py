@@ -68,8 +68,7 @@ class Simulator:
             self.all_veh[old_group].remove(veh)
 
         for group, vehs in self.all_veh.items():
-            if group != 'ju':
-                vehs.sort(key=lambda veh: veh.inst_x) # 按照x从小到大排序         
+            vehs.sort(key=lambda veh: veh.inst_x) # 按照x从小到大排序         
 
     def remove_out_veh(self):
         '''删去跑出仿真区域的车辆'''
@@ -115,9 +114,15 @@ class Simulator:
         for group, vehs in self.all_veh.items():
             for (i, veh) in enumerate(vehs):
                 lead_veh = None
-                if group != 'ju':
+                if group != 'ju': # 进出口道
                     for j in range(i+1, len(vehs)):
                         if vehs[j].inst_lane == veh.inst_lane:
+                            lead_veh = vehs[j]
+                            break
+                else: # 交叉口，这里本没有车道概念，但是为了防止轨迹一致的前后两车相撞，还是认为它们在同一车道上
+                    for j in range(i+1, len(vehs)):
+                        if vehs[j].track.ap_arm == veh.track.ap_arm and vehs[j].track.ap_lane == veh.track.ap_lane \
+                            and vehs[j].track.turn_dir == veh.track.turn_dir and vehs[j].track.ex_lane == veh.track.ex_lane:
                             lead_veh = vehs[j]
                             break
                 veh.update_control(lead_veh)
