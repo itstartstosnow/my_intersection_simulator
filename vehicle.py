@@ -1,7 +1,7 @@
 import math
 import logging
 
-from lib.settings import arm_len
+from lib.settings import arm_len, inter_speed_limit
 from map import Track
 from inter_manager import ComSystem
 
@@ -90,13 +90,18 @@ class Vehicle:
             self.zone = 'ju'
             self.inst_lane = -1
             return True
+        elif self.zone == 'ap' and self.inst_x > -50: # 当距离交叉口较近时，期望速度为交叉口限速
+            self.cf_model.v0 = min(self.cf_model.v0, inter_speed_limit)
+            self.cf_model.T = min(self.cf_model.T, 1)
         elif self.zone == 'ju' and self.inst_x >= self.track.ju_shape_end_x[-1]: 
             self.zone = 'ex'
             self.inst_x -= self.track.ju_shape_end_x[-1]
             self.inst_lane = self.track.ex_lane
+            self.cf_model.v0 = self.cf_model.v0_backup # 期望速度改回原来的值
+            self.cf_model.T = self.cf_model.T_backup
             return True
         
-        logging.debug("Timestep: %d, veh %d, %s, %d lane, x = %.1f" % (timestep, self._id, self.zone, self.inst_lane, self.inst_x))
+        logging.debug("time %d, veh %d, %s, lane %d, x = %.1f, v = %.1f" % (timestep, self._id, self.zone, self.inst_lane, self.inst_x, self.inst_v))
         return False
 
 
@@ -109,6 +114,8 @@ class CFModel:
         self.a = cf_param['a']      # acceleration rate
         self.b = cf_param['b']      # deceleration rate
         self.delta = 4
+        self.v0_backup = self.v0
+        self.T_backup = self.T
 
     def acc_from_model(self, v, s, v_l):
         '''
