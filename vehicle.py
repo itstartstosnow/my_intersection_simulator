@@ -3,6 +3,7 @@ import logging
 
 from lib.settings import arm_len
 from map import Track
+from inter_manager import ComSystem
 
 class Vehicle:
     '''
@@ -38,20 +39,47 @@ class Vehicle:
         return self._id == vehicle._id
 
     def update_control(self, lead_veh):
-        # 向交叉口请求之类的
-        # Todo
-
-        if self.zone == 'ap' or 'ex':
+        if self.zone == 'ap':
+            if not self.control_order or self.control_order['order'] == 'G':
+                if not lead_veh:
+                    # 没有前车，就假设前车无穷远
+                    self.inst_a = self.cf_model.acc_from_model(self.inst_v, 1e3, self.cf_model.v0)
+                else: 
+                    s = lead_veh.inst_x - self.inst_x - lead_veh.veh_len
+                    v_l = lead_veh.inst_v
+                    self.inst_a = self.cf_model.acc_from_model(self.inst_v, s, v_l)
+            else:
+                if not lead_veh:
+                    # 认为停车线位置是前车，且速度为 0
+                    self.inst_a = self.cf_model.acc_from_model(self.inst_v, - self.inst_x, 0) 
+                else:
+                    # 有前车
+                    s = lead_veh.inst_x - self.inst_x - lead_veh.veh_len
+                    v_l = lead_veh.inst_v
+                    self.inst_a = self.cf_model.acc_from_model(self.inst_v, s, v_l)
+        elif self.zone == 'ex':
             if not lead_veh:
-                # 没有前车，就假设前车无穷远
                 self.inst_a = self.cf_model.acc_from_model(self.inst_v, 1e3, self.cf_model.v0)
             else: 
                 s = lead_veh.inst_x - self.inst_x - lead_veh.veh_len
                 v_l = lead_veh.inst_v
                 self.inst_a = self.cf_model.acc_from_model(self.inst_v, s, v_l)
-        
+        elif self.zone == 'ju':
+            self.inst_a = (self.cf_model.v0 - self.inst_v) / 5
+            
         # 根据车辆性能，限制一下最大最小
         self.inst_a = min(max(self.inst_a, - self.max_dec), self.max_acc)
+
+    def receive_broadcast(self, message):
+        if self.zone == 'ap' and message['mode'] == 'traffic light':
+            self.control_order = {
+                'mode': 'traffic light',
+                'order': message[self.track.ap_arm + self.track.turn_dir]
+            }
+            logging.debug('self.control_order =' + str(self.control_order))
+
+    def receive_I2V(self, message):
+        pass
 
     def update_position(self, dt, timestep):
         '''相当于做积分，更新位置和速度. 返回：zone是否发生了更改'''
@@ -71,8 +99,8 @@ class Vehicle:
             return True
         
         logging.debug("Timestep: %d, veh %d, %s, %d lane, x = %.1f" % (timestep, self._id, self.zone, self.inst_lane, self.inst_x))
-
         return False
+
 
 class CFModel:
     '''Car-following model, here we use IDM model'''

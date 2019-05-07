@@ -272,6 +272,5 @@ class Track:
             else: 
                 sum += seg[4] * abs(seg[5][0] - seg[5][1]) * math.pi / 180
             self.ju_shape_end_x.append(sum)
-        logging.debug(str(self.ju_shape_end_x) + str(self.ju_track))
 
 
