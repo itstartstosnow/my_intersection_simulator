@@ -15,7 +15,6 @@ veh_param = {
     'veh_wid': 2,
     'veh_len': 4.8,
     'veh_len_front': 1,      # 前保险杠到前轮轴的距离
-    'veh_len_back': 4.8 - 1, # 前轮轴到后保险杠的距离
     'max_v': 33,
     'max_acc': 3,
     'max_dec': 6,
@@ -76,4 +75,4 @@ for key, value in veh_gen_rule_table.items():
 # veh_gen_rule_table 现在的单位是生成车的概率 / timestep
         
 ########################## 交叉口控制方案设置 ##########################
-inter_control_mode = 'traffic light'
+inter_control_mode = 'traffic light' # 'traffic light', 'Dresner'

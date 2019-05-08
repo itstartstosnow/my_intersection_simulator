@@ -2,8 +2,10 @@ import logging
 from lib.settings import inter_control_mode
 
 class BaseInterManager:
+    def __init__(self):
+        self.timestep = 0
     def update(self):
-        pass
+        self.timestep += 1
     def receive_V2I(self, sender, message):
         pass
 
@@ -21,12 +23,12 @@ class TrafficLightManager(BaseInterManager):
         ]
 
     def update(self):
-        self.timestep += 1
+        super().update()
         self.update_phase()
     
     def update_phase(self):
         self.current_elapsed_time += 1
-        message = {'mode': 'traffic light'}
+        message = {}
         if self.current_elapsed_time == self.phase[self.current_phase][0]:
             # 这个相位结束了，换下一个相位
             self.current_elapsed_time = 0
@@ -50,9 +52,45 @@ class TrafficLightManager(BaseInterManager):
     def receive_V2I(self, sender, message):
         return 
 
+class DresnerManager(BaseInterManager):
+    def __init__(self):
+        super().__init__()
+        self.timestep = 0
+        self.grid = None
+
+
+    def update(self):
+        BaseInterManager.update()
+        # Todo：删除一些过去的时刻
+    def receive_V2I(self, sender, message):
+        if message['type'] == 'request':
+            reservation = check_request()
+            message = {'type': None}
+            if reservation:
+                message['type'] = 'confirm'
+                ComSystem.I2V(sender, message)
+            else: 
+                message['type'] = 'reject'
+                ComSystem.I2V(sender, reservation)
+        elif message['type'] == 'change-request':
+            pass
+        elif message['type'] == 'cancel':
+            # process cancel with P
+            ComSystem.I2V(sender, {'type': 'acknowledge'})
+        elif message['type'] == 'done':
+            # record any statistics supplied in message
+            # process cancel with P
+            ComSystem.I2V(sender, {'type': 'acknowledge'})
+    def check_request(self): 
+        pass
+        # confirm时返回reservation，当reject时返回None
+        
+
 # 根据设置选择某个实现
 if inter_control_mode == 'traffic light':
     inter_manager = TrafficLightManager()
+elif inter_control_mode == 'Dresner':
+    inter_manager = DresnerManager()
 
 # 这不是上策，但是先这样吧
 import simulator
