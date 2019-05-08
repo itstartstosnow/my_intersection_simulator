@@ -1,35 +1,34 @@
 import logging
+from lib.settings import inter_control_mode
 
-class InterManager:
-    _instance = None
+class BaseInterManager:
+    def update(self):
+        pass
+    def receive_V2I(self, sender, message):
+        pass
 
-    @staticmethod 
-    def getInstance():
-        if InterManager._instance == None:
-            InterManager()
-        return InterManager._instance
-
+class TrafficLightManager(BaseInterManager):
     def __init__(self):
-        if InterManager._instance != None:
-            raise Exception("Class InterManager is a singleton, but more than one objects are created.")
-        else:
-            InterManager._instance = self
-            self.timestep = 0
-            self.current_phase = 0
-            self.current_elapsed_time = 0
-            self.phase = [
-                [200, 'Nl', 'Sl'],
-                [250, 'Nt', 'St', 'Nr', 'Sr'],
-                [200, 'El', 'Wl'],
-                [250, 'Et', 'Wt', 'Er', 'Wr']
-            ]
+        super().__init__()
+        self.timestep = 0
+        self.current_phase = 0
+        self.current_elapsed_time = 0
+        self.phase = [
+            [200, 'Nl', 'Sl'],
+            [250, 'Nt', 'St', 'Nr', 'Sr'],
+            [200, 'El', 'Wl'],
+            [250, 'Et', 'Wt', 'Er', 'Wr']
+        ]
 
-    def sync_time(self, timestep):
-        self.timestep = timestep
+    def update(self):
+        self.timestep += 1
+        self.update_phase()
+    
+    def update_phase(self):
         self.current_elapsed_time += 1
         message = {'mode': 'traffic light'}
         if self.current_elapsed_time == self.phase[self.current_phase][0]:
-            # 这个相位要结束了，换下一个相位
+            # 这个相位结束了，换下一个相位
             self.current_elapsed_time = 0
             self.current_phase = (self.current_phase + 1) % len(self.phase)
         if self.current_elapsed_time >= self.phase[self.current_phase][0] - 30:
@@ -49,7 +48,11 @@ class InterManager:
             ComSystem.I_broadcast(message)
         
     def receive_V2I(self, sender, message):
-        pass
+        return 
+
+# 根据设置选择某个实现
+if inter_control_mode == 'traffic light':
+    inter_manager = TrafficLightManager()
 
 # 这不是上策，但是先这样吧
 import simulator
@@ -61,7 +64,7 @@ class ComSystem:
 
     @staticmethod   
     def V2I(sender, message):
-        InterManager.getInstance().receive_V2I(sender, message)
+        inter_manager.receive_V2I(sender, message)
 
     @staticmethod
     def I2V(receiver, message):

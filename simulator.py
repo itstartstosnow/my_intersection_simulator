@@ -3,7 +3,6 @@ import logging
 
 from vehicle import Vehicle
 from lib.settings import arm_len, veh_dt, veh_param, cf_param, veh_gen_rule_table, min_gen_hs, gen_init_v, gen_init_x
-from inter_manager import InterManager
 
 import numpy as np
 
@@ -44,8 +43,6 @@ class Simulator:
         self.gen_new_veh()
         self.remove_out_veh()
         self.update_all_control()
-
-        InterManager.getInstance().sync_time(self.timestep)
 
     def all_update_position(self):
         '''更新所有车辆位置，顺便记录分组有变化的车辆'''
