@@ -1,7 +1,7 @@
 import math
 import logging
 
-from lib.settings import arm_len, inter_speed_limit, inter_control_mode
+from lib.settings import arm_len, inter_v_lim, arm_v_lim, inter_control_mode, veh_dt
 from map import Track
 from inter_manager import ComSystem
 
@@ -23,6 +23,7 @@ class BaseVehicle:
         self.track = Track(veh_param['ap_arm'], veh_param['ap_lane'], veh_param['turn_dir'])
 
         # dynamic
+        self.timestep = 0
         self.inst_a = 0
         self.inst_v = init_v
         self.zone = 'ap'                       # 'ap' = approach lane, 'ju' = junction area, 'ex' = exit lane
@@ -58,10 +59,11 @@ class BaseVehicle:
 
     def update_position(self, dt, timestep):
         '''相当于做积分，更新位置和速度. 返回：zone是否发生了更改'''
+        self.timestep = timestep
+        self.inst_x += self.inst_a * (dt ** 2) / 2 + self.inst_v * dt
         self.inst_v += self.inst_a * dt
         self.inst_v = min(self.inst_v, self.max_v)
         self.inst_v = max(self.inst_v, 0)
-        self.inst_x += self.inst_a * (dt ** 2) / 2 + self.inst_v * dt
 
         if self.zone == 'ap' and self.inst_x >= 0:
             self.zone = 'ju'
@@ -111,7 +113,7 @@ class HumanDrivenVehicle(BaseVehicle):
             # 当距离交叉口较近时，期望速度改为交叉口限速，车头时距改小
             self.cf_v0_backup = self.cf_model.v0
             self.cf_T_backup = self.cf_model.T
-            self.cf_model.v0 = min(self.cf_model.v0, inter_speed_limit)
+            self.cf_model.v0 = min(self.cf_model.v0, inter_v_lim)
             self.cf_model.T = min(self.cf_model.T, 1)
         elif self.zone == 'ex' and switch_group: 
             # 刚刚从交叉口区域变到出口道，改回来跟车参数
@@ -128,8 +130,116 @@ class HumanDrivenVehicle(BaseVehicle):
         '''不听不听王八念经'''
         return
 
+class DresnerVehicle(BaseVehicle):
+    '''对应 Dresner 文中的自动驾驶车，响应 DresnerManager'''
+    def __init__(self, id, veh_param, cf_param, init_v):
+        super().__init__(id, veh_param, cf_param, init_v)
+        # 控制信息
+        self.reservation = None
+        self.timeout = 0         # Unit: s
+        # 文中的 optimistic 和 pessimistic
+        self.optimism = True
+        self.ap_acc_profile = None
+
+    def plan_arr(self):
+        '''按照 arr_v 最大、arr_t 最大计划到达时间和速度。因为只有一个车道的头车才能计划这个，因此只要获得预约，计划肯定能被执行'''
+        if self.inst_v < inter_v_lim: 
+            acc_distance = (inter_v_lim**2 - self.inst_v**2) / 2 / self.max_acc # 加速到 v_lim 所需要的距离
+            if acc_distance >= (-self.inst_x):
+                # 到停车线还加速不到 v_lim，就全程加速
+                arr_v = math.sqrt(self.inst_v**2 + 2*self.max_acc*(-self.inst_x))
+                t1 = (arr_v - self.inst_v) / self.max_acc
+                arr_t = self.timestep + t1 / veh_dt
+                self.ap_acc_profile = [[self.timestep, self.max_acc]]
+            else: 
+                # 不到停车线就加速够了，暂时先加速-匀速吧，加速-减速太难算了
+                arr_v = inter_v_lim
+                t1 = (inter_v_lim - self.inst_v) / self.max_acc
+                t2 = ((-self.inst_x) - acc_distance) / inter_v_lim
+                arr_t = self.timestep + (t1+t2) / veh_dt
+                self.ap_acc_profile = [
+                    [self.timestep, self.max_acc],
+                    [self.timestep + t1/veh_dt, 0]
+                ]
+        else:
+            # 现在速度超过了v_lim，匀速-减速 (不该出现减速减不下来的情况)
+            dec_distance = (inter_v_lim**2 - self.inst_v**2) / 2 / -(self.max_dec)
+            if dec_distance > (-self.inst_x):
+                print('Error: veh %d is unable to brake at stop bar' % self._id)
+                arr_v = self.inst_v
+                arr_t = self.timestep + ((-self.inst_x) / self.inst_v) / veh_dt
+                self.ap_acc_profile = [[self.timestep, 0]]
+            else:
+                arr_v = inter_v_lim
+                t2 = (self.inst_v - inter_v_lim) / self.max_dec
+                t1 = ((-self.inst_x) - dec_distance) / self.inst_v
+                arr_t = self.timestep + (t1+t2) / veh_dt
+                self.ap_acc_profile = [
+                    [self.timestep, 0],
+                    [self.timestep + t1/veh_dt, -self.max_dec]
+                ]
+        return [arr_t, arr_v]
+    
+    def update_control(self, lead_veh):
+        if self.zone == 'ap':
+            if not lead_veh and not self.reservation:
+                # 已经没有前车了，就使劲预约
+                [arr_t, arr_v] = self.plan_arr()
+                ComSystem.V2I(self, {
+                    'type': 'request',
+                    'veh_id': self._id, 
+                    'arr_t': arr_t, 
+                    'arr_v': arr_v, 
+                    'arr_arm': self.track.ap_arm,
+                    'arr_lane': self.track.ap_lane, 
+                    'turn_dir': self.track.turn_dir, 
+                    'veh_len': self.veh_len, 
+                    'veh_wid': self.veh_wid
+                })
+            if self.reservation:
+                # 预约成功，按照之前算的 plan 执行加速
+                for t, a in self.ap_acc_profile:
+                    if self.timestep >= t:
+                        self.inst_a = a
+            else:
+                # 不成功，prepare to stop at stop bar 
+                self.inst_a = self.cf_model.acc_from_model(self.inst_v, - self.inst_x - self.veh_len_front, 0)
+        elif self.zone == 'ju':
+            # 按照 reservation 的 acc 要求跑
+            for t, a in self.reservation['acc']:
+                if self.timestep >= t:
+                    self.inst_a = a
+        else:
+            # exit lane, perform normal car following
+            return super().update_control(lead_veh)
+
+    def update_position(self, dt, timestep):
+        if super().update_position(dt, timestep):
+            if self.zone == 'ex':
+                ComSystem.V2I(self, {
+                    'type': 'done',
+                    'veh_id': self._id, 
+                    'res_id': self.reservation['res_id']
+                })
+
+    def receive_broadcast(self, message):
+        '''暂时不听'''
+        pass
+
+    def receive_I2V(self, message):
+        if message['type'] == 'acknowledge':
+            if message['res_id'] != self.reservation.id:
+                print('Error: ack message with [\'res_id\'] = %d is sent to veh %d' % (message['res_id'], self._id))
+        elif message['type'] == 'confirm':
+            self.reservation = message['reservation']
+        elif message['type'] == 'reject':
+            self.timeout = message['timeout']
+
+# 根据设置选择某个实现
 if inter_control_mode == 'traffic light':
     Vehicle = HumanDrivenVehicle
+elif inter_control_mode == 'Dresner':
+    Vehicle = DresnerVehicle
 
 class CFModel:
     '''Car-following model, here we use IDM model'''

@@ -65,13 +65,18 @@ class DresnerManager(BaseInterManager):
     def receive_V2I(self, sender, message):
         if message['type'] == 'request':
             reservation = check_request()
-            message = {'type': None}
             if reservation:
-                message['type'] = 'confirm'
+                message = {
+                    'type': 'confirm',
+                    'reservation': reservation
+                }
                 ComSystem.I2V(sender, message)
             else: 
-                message['type'] = 'reject'
-                ComSystem.I2V(sender, reservation)
+                message = {
+                    'type': 'reject',
+                    'timeout': 1
+                }
+                ComSystem.I2V(sender, message)
         elif message['type'] == 'change-request':
             pass
         elif message['type'] == 'cancel':

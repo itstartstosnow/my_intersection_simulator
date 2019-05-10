@@ -122,7 +122,7 @@ class Simulator:
                             and vehs[j].track.turn_dir == veh.track.turn_dir and vehs[j].track.ex_lane == veh.track.ex_lane:
                             lead_veh = vehs[j]
                             break
-                veh.update_control(lead_veh)
+                veh.update_control(lead_veh, self.timestep)
 
 
 
