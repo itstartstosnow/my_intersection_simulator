@@ -1,5 +1,10 @@
+import math
 import logging
-from lib.settings import inter_control_mode
+
+from lib.settings import inter_control_mode, lane_width, turn_radius, arm_len, NS_lane_count, EW_lane_count, veh_dt, inter_v_lim
+from map import Map, Track
+
+import numpy as np
 
 class BaseInterManager:
     def __init__(self):
@@ -56,40 +61,273 @@ class DresnerManager(BaseInterManager):
     def __init__(self):
         super().__init__()
         self.timestep = 0
-        self.grid = None
-
+        self.res_grid = DresnerResGrid(0.5) # 写到设置里？
+        self.ex_lane_table = self.gen_ex_lane_table()
+        self.veh_dots_table = {}
+        self.gen_veh_dots(2, 4.8, 1)
+        self.res_registery = {}
+        self.veh_points = {}
 
     def update(self):
-        BaseInterManager.update()
-        # Todo：删除一些过去的时刻
+        super().update()
+        self.res_grid.dispose_passed_time(self.timestep)
+
     def receive_V2I(self, sender, message):
         if message['type'] == 'request':
-            reservation = check_request()
+            reservation = self.check_request(message)
             if reservation:
-                message = {
+                reply_message = {
                     'type': 'confirm',
                     'reservation': reservation
                 }
-                ComSystem.I2V(sender, message)
+                self.res_registery[message['veh_id']] = reservation['res_id']
+                ComSystem.I2V(sender, reply_message)
             else: 
-                message = {
+                reply_message = {
                     'type': 'reject',
                     'timeout': 1
                 }
-                ComSystem.I2V(sender, message)
+                ComSystem.I2V(sender, reply_message)
         elif message['type'] == 'change-request':
             pass
         elif message['type'] == 'cancel':
             # process cancel with P
-            ComSystem.I2V(sender, {'type': 'acknowledge'})
+            pass
         elif message['type'] == 'done':
             # record any statistics supplied in message
             # process cancel with P
-            ComSystem.I2V(sender, {'type': 'acknowledge'})
-    def check_request(self): 
-        pass
+            self.res_registery.pop(message['veh_id']) # dict.pop(key)返回value并删除
+            ComSystem.I2V(sender, {
+                'type': 'acknowledge',
+                'res_id': message['res_id']
+            })
+
+    def gen_ex_lane_table(self):
+        table = {}
+        table['Nl'] = list(range(EW_lane_count))
+        table['Sl'] = table['Nl']
+        table['El'] = list(range(NS_lane_count))
+        table['Wl'] = table['El']
+        table['Nr'] = list(range(EW_lane_count - 1, -1, -1))
+        table['Sr'] = table['Nr']
+        table['Er'] = list(range(NS_lane_count - 1, -1, -1))
+        table['Wr'] = table['Sr']
+        for i in range(NS_lane_count):
+            ti_list = [i]
+            left_finished, right_finished = False, False
+            for j in range(1, EW_lane_count):
+                if not left_finished:
+                    if i - j >= 0:
+                        ti_list.append(i - j)
+                    else:
+                        left_finished = True
+                if not right_finished:
+                    if i + j < EW_lane_count:
+                        ti_list.append(i + j)
+                    else:
+                        right_finished = True
+                if left_finished and right_finished:
+                    break
+            table['Nt' + str(i)] = ti_list
+            table['St' + str(i)] = ti_list
+        for i in range(EW_lane_count):
+            ti_list = [i]
+            left_finished, right_finished = False, False
+            for j in range(1, NS_lane_count):
+                if not left_finished:
+                    if i - j >= 0:
+                        ti_list.append(i - j)
+                    else:
+                        left_finished = True
+                if not right_finished:
+                    if i + j < NS_lane_count:
+                        ti_list.append(i + j)
+                    else:
+                        right_finished = True
+                if left_finished and right_finished:
+                    break
+            table['Et' + str(i)] = ti_list
+            table['Wt' + str(i)] = ti_list
+        return table
+
+    def get_ex_lane_list(self, ap_arm, turn_dir, ap_lane):
+        if turn_dir == 't':
+            return self.ex_lane_table[ap_arm + turn_dir + str(ap_lane)]
+        else:
+            return self.ex_lane_table[ap_arm + turn_dir]
+
+    def gen_veh_dots(self, veh_wid, veh_len, veh_len_front):
+        '''将车辆取成足够密的一个个散点。车辆的车头朝北，xy与画图逻辑坐标系同，x向右，y向下。车辆的前轮中心在(0,0)的位置。返回取到的系列点的x和y。'''
+        xs = np.arange(-veh_wid/2, veh_wid/2 + 1e-1, 0.2)
+        ys = np.arange(-veh_len_front, veh_len-veh_len_front + 1e-1, 0.2)
+        xx, yy = np.meshgrid(xs, ys)
+        self.veh_dots_table[(veh_wid, veh_len, veh_len_front)] = [xx.flatten(), yy.flatten()]
+
+    def check_request(self, message): 
         # confirm时返回reservation，当reject时返回None
-        
+        ex_arm = Map.getInstance().get_ex_arm(message['arr_arm'], message['turn_dir'])
+        ex_lane_list = self.get_ex_lane_list(message['arr_arm'], message['turn_dir'], message['arr_lane'])
+        for ex_lane in ex_lane_list:
+            ju_track = Map.getInstance().get_ju_track(message['arr_arm'], message['turn_dir'], message['arr_lane'], ex_lane)
+            ju_shape_end_x = Track.cal_ju_shape_end_x(ju_track)
+            # 加速到最高速度 - 匀速 方案
+            acc_acc = []
+            acc_distance = (inter_v_lim**2 - message['arr_v']**2) / 2 / message['max_acc']
+            if acc_distance >= ju_shape_end_x[-1]: 
+                # 全程加速
+                acc_acc.append([message['arr_t'], message['max_acc']])
+            else:
+                # 加速-匀速
+                acc_time = (inter_v_lim - message['arr_v']) / message['max_acc']
+                acc_acc.append([message['arr_t'], message['max_acc']])
+                acc_acc.append([message['arr_t']+acc_time, 0])
+            # 匀速方案
+            acc_const_v = [[message['arr_t'], 0]]
+            if self.check_cells_stepwise(message, ju_track, ju_shape_end_x, acc_acc):
+                return {
+                    'res_id': 0, # Todo
+                    'ex_lane': ex_lane,
+                    'arr_t': message['arr_t'],
+                    'arr_v': message['arr_v'],
+                    'acc': acc_acc
+                }
+            elif self.check_cells_stepwise(message, ju_track, ju_shape_end_x, acc_const_v):
+                return {
+                    'res_id': 0, # Todo
+                    'ex_lane': ex_lane,
+                    'arr_t': message['arr_t'],
+                    'arr_v': message['arr_v'],
+                    'acc': acc_const_v
+                }
+        return None
+            
+    def check_cells_stepwise(self, message, ju_track, ju_shape_end_x, acc):
+        t = message['arr_t']
+        v = message['arr_v']
+        x_1d = 0
+        a_idx = 0
+        seg_idx = 0
+
+        while x_1d <= ju_shape_end_x[-1]:
+            # 计算车辆xy坐标和方向
+            seg = ju_track[seg_idx]
+            if seg_idx > 0:
+                seg_x = x_1d - ju_shape_end_x[seg_idx - 1]  
+            else:
+                seg_x = x_1d
+            if seg[0] == 'line': # 是直线
+                if abs(seg[1][0] - seg[2][0]) < 1e-5: # 竖线
+                    x = seg[1][0]
+                    if seg[1][1] < seg[2][1]: # 从上到下
+                        y = seg[1][1] + seg_x
+                        angle = 180 # angle 是相比于“车头向北”顺时针旋转的度数
+                    else: # 从下到上
+                        y = seg[1][1] - seg_x
+                        angle = 0
+                else: # 横线 
+                    y = seg[1][1]
+                    if seg[1][0] < seg[2][0]: # 从左向右
+                        x = seg[1][0] + seg_x
+                        angle = 90 
+                    else: # 从右向左
+                        x = seg[1][0] - seg_x
+                        angle = 270
+            else: # 圆曲线
+                if seg[5][0] < seg[5][1]: # 轨迹逆时针
+                    rotation = seg[5][0] + seg_x / seg[4] * 180 / math.pi
+                    angle = 180 - rotation
+                    x = seg[3][0] + seg[4] * math.cos(-rotation / 180 * math.pi)
+                    y = seg[3][1] + seg[4] * math.sin(-rotation / 180 * math.pi)
+                else:
+                    rotation = seg[5][0] - seg_x / seg[4] * 180 / math.pi
+                    angle = - rotation
+                    x = seg[3][0] + seg[4] * math.cos(-rotation / 180 * math.pi)
+                    y = seg[3][1] + seg[4] * math.sin(-rotation / 180 * math.pi)
+            
+            # 计算在逻辑坐标系上车辆的dots的xy坐标(先旋转，再置于xy)
+            veh_dots_x, veh_dots_y = self.veh_dots_table[(message['veh_wid'], message['veh_len'], message['veh_len_front'])]
+            veh_dots_x_rt = veh_dots_x * math.cos(angle*math.pi/180) - veh_dots_y * math.sin(angle*math.pi/180)
+            veh_dots_y_rt = veh_dots_y * math.cos(angle*math.pi/180) + veh_dots_x * math.sin(angle*math.pi/180)
+            veh_dots_x_rt += x
+            veh_dots_y_rt += y
+            
+            # 利用grid.xy_to_ij转化为车辆此时占有的cell
+            i, j = self.res_grid.xy_to_ij(veh_dots_x_rt, veh_dots_y_rt)
+            t_slice = np.ones(i.shape, dtype=np.int16) * (round(t-self.res_grid.t_start))
+            if t_slice[0] >= self.res_grid.cells.shape[2]:
+                self.res_grid.add_time_dimension()
+            
+            # 如果不为空，失败
+            if np.sum(self.res_grid.cells[i, j, t_slice] != -1) == 0:
+                self.res_grid.cells[i, j, t_slice] = message['veh_id']
+            else:
+                # 规划失败，清楚痕迹后返回False
+                self.res_grid.clear_veh_cell(message['veh_id'])
+                return False
+
+            # 更新位置，速度，加速度，所在的形状
+            x_1d += v * veh_dt + acc[a_idx][1] / 2 * veh_dt ** 2
+            v += acc[a_idx][1] * veh_dt
+            t += 1
+            if a_idx+1 < len(acc) and t >= acc[a_idx+1][0]:
+                a_idx += 1
+            if x_1d > ju_shape_end_x[seg_idx]:
+                seg_idx += 1 # 如果已经是最后一段形状的话，会退出循环的，没事
+
+        return True
+        # Todo：注意一下出口道的问题，文中用edge_tile实线的，我或许要记一下各个出口道的安排
+    
+class DresnerResGrid:
+    '''a grid representation of intersection area'''
+    def __init__(self, cell_size):
+        self.lw = lane_width
+        self.tr = turn_radius
+        self.al = arm_len
+        self.NSl = NS_lane_count
+        self.EWl = EW_lane_count
+        # 交叉口宽和高的一半，以 m 为单位，也就是 (x2, y2)
+        self.wid_m_half = self.lw * self.NSl + self.tr
+        self.hgt_m_half = self.lw * self.EWl + self.tr
+        self.cell_size = cell_size
+        # grid 的行数和列数
+        self.i_n = math.ceil(self.hgt_m_half * 2 / cell_size) # 行数
+        self.j_n = math.ceil(self.wid_m_half * 2 / cell_size) # 列数
+
+        self.t_start = 0 # 第三维 t=0 对应的 timestep
+
+        self.cells = - np.ones(shape=(self.i_n, self.j_n, int(20/veh_dt)), dtype=np.int16)
+
+    def xy_to_ij(self, x_arr, y_arr):
+        '''
+        从 xy 坐标找对应的 cell index ij。xyij 都可以是向量。
+        xy 坐标是 my_paint_canvas 中的逻辑坐标系，右、下分别为 x、y 正方向，原点位于交叉口中心
+        ij 为第 i 行第 j 列。xy(-wid_m/2, -hgt_m/2) 对应于第 0 行 0 列的左上角。
+        '''
+        x_arr = np.array(x_arr)
+        y_arr = np.array(y_arr)
+        i_arr = np.zeros(y_arr.shape)
+        j_arr = np.zeros(x_arr.shape)
+        j_arr = np.floor((x_arr + self.wid_m_half) / self.cell_size).astype(np.int16)
+        i_arr = np.floor((y_arr + self.hgt_m_half) / self.cell_size).astype(np.int16)
+        i_arr[i_arr<0] = 0
+        j_arr[j_arr<0] = 0
+        i_arr[i_arr>=self.i_n] = self.i_n-1
+        j_arr[j_arr>=self.j_n] = self.j_n-1
+        return [i_arr, j_arr]
+
+    def clear_veh_cell(self, veh_id):
+        '''清除某个车辆 veh_id 占用的所有格子'''
+        self.cells[self.cells == veh_id] = -1
+
+    def add_time_dimension(self):
+        '''当第三维 t 不够用的时候直接把 size 翻倍'''
+        self.cells = np.concatenate((self.cells, -np.ones(self.cells.shape, dtype=np.int16)), axis=2)
+    
+    def dispose_passed_time(self, timestep):
+        '''把过去时间的信息都清除掉（反正也穿越不回去了）'''
+        if timestep - self.t_start > 20:
+            self.cells = self.cells[:, :, (timestep - self.t_start):]
+            self.t_start = timestep
 
 # 根据设置选择某个实现
 if inter_control_mode == 'traffic light':

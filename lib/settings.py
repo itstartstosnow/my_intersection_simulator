@@ -76,4 +76,4 @@ for key, value in veh_gen_rule_table.items():
 # veh_gen_rule_table 现在的单位是生成车的概率 / timestep
         
 ########################## 交叉口控制方案设置 ##########################
-inter_control_mode = 'traffic light' # 'traffic light', 'Dresner'
+inter_control_mode = 'Dresner' # 'traffic light', 'Dresner'

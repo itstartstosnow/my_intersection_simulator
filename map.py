@@ -2,6 +2,7 @@ import math
 import logging
 
 from lib.settings import lane_width, turn_radius, arm_len, NS_lane_count, EW_lane_count, veh_gen_rule_table
+
 class Map:
     _instance = None
 
@@ -261,16 +262,19 @@ class Track:
     def confirm_ex_lane(self, ex_lane):
         self.ex_lane = ex_lane
         self.ju_track = Map.getInstance().get_ju_track(self.ap_arm, self.turn_dir, self.ap_lane, self.ex_lane)
-        self.cal_ju_shape_end_x()
+        self.ju_shape_end_x = Track.cal_ju_shape_end_x(self.ju_track)
         self.is_complete = True
 
-    def cal_ju_shape_end_x(self):
+    @staticmethod
+    def cal_ju_shape_end_x(ju_track):
         sum = 0
-        for seg in self.ju_track:
+        ju_shape_end_x = []
+        for seg in ju_track:
             if seg[0] == 'line': 
                 sum += math.sqrt((seg[1][0] - seg[2][0]) ** 2 + (seg[1][1] - seg[2][1]) ** 2)
             else: 
                 sum += seg[4] * abs(seg[5][0] - seg[5][1]) * math.pi / 180
-            self.ju_shape_end_x.append(sum)
+            ju_shape_end_x.append(sum)
+        return ju_shape_end_x
 
 

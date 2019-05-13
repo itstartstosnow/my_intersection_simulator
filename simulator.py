@@ -49,7 +49,7 @@ class Simulator:
         to_switch_group = []
         for group, vehs in self.all_veh.items():
             for veh in vehs:
-                switch_group = veh.update_position(veh_dt, self.timestep)
+                switch_group = veh.update_position(veh_dt)
                 if switch_group:
                     to_switch_group.append([veh, group])
         return to_switch_group
@@ -65,7 +65,8 @@ class Simulator:
             self.all_veh[old_group].remove(veh)
 
         for group, vehs in self.all_veh.items():
-            vehs.sort(key=lambda veh: veh.inst_x) # 按照x从小到大排序         
+            vehs.sort(key=lambda veh: veh.inst_x) # 按照x从小到大排序
+            logging.debug("group %s: veh %s" % (group, [veh._id for veh in vehs])) 
 
     def remove_out_veh(self):
         '''删去跑出仿真区域的车辆'''
@@ -102,7 +103,7 @@ class Simulator:
         new_veh_param['ap_arm'] = ap_arm
         new_veh_param['ap_lane'] = ap_lane
         new_veh_param['turn_dir'] = turn_dir
-        new_veh = Vehicle(self.gen_veh_count, new_veh_param, cf_param, gen_init_v)
+        new_veh = Vehicle(self.gen_veh_count, new_veh_param, cf_param, gen_init_v, self.timestep)
         self.gen_veh_count += 1
         return new_veh
 
@@ -122,7 +123,7 @@ class Simulator:
                             and vehs[j].track.turn_dir == veh.track.turn_dir and vehs[j].track.ex_lane == veh.track.ex_lane:
                             lead_veh = vehs[j]
                             break
-                veh.update_control(lead_veh, self.timestep)
+                veh.update_control(lead_veh)
 
 
 

@@ -10,7 +10,7 @@ class BaseVehicle:
     units: meter, second
     x is defined as the position of Front bumper
     '''
-    def __init__(self, id, veh_param, cf_param, init_v):
+    def __init__(self, id, veh_param, cf_param, init_v, timestep):
         # static
         self._id = id
         self.veh_wid = veh_param['veh_wid']
@@ -23,7 +23,7 @@ class BaseVehicle:
         self.track = Track(veh_param['ap_arm'], veh_param['ap_lane'], veh_param['turn_dir'])
 
         # dynamic
-        self.timestep = 0
+        self.timestep = timestep
         self.inst_a = 0
         self.inst_v = init_v
         self.zone = 'ap'                       # 'ap' = approach lane, 'ju' = junction area, 'ex' = exit lane
@@ -57,9 +57,10 @@ class BaseVehicle:
         # 根据车辆性能，限制一下最大最小
         self.inst_a = min(max(self.inst_a, - self.max_dec), self.max_acc)
 
-    def update_position(self, dt, timestep):
+    def update_position(self, dt):
         '''相当于做积分，更新位置和速度. 返回：zone是否发生了更改'''
-        self.timestep = timestep
+        self.timestep += 1
+
         self.inst_x += self.inst_a * (dt ** 2) / 2 + self.inst_v * dt
         self.inst_v += self.inst_a * dt
         self.inst_v = min(self.inst_v, self.max_v)
@@ -75,7 +76,7 @@ class BaseVehicle:
             self.inst_lane = self.track.ex_lane
             return True
         
-        # logging.debug("time %d, veh %d, %s, lane %d, x = %.1f, v = %.1f" % (timestep, self._id, self.zone, self.inst_lane, self.inst_x, self.inst_v))
+        logging.debug("time %d, veh %d, %s, lane %d, x = %.1f, v = %.1f" % (self.timestep, self._id, self.zone, self.inst_lane, self.inst_x, self.inst_v))
         return False
 
     def receive_broadcast(self, message):
@@ -84,11 +85,10 @@ class BaseVehicle:
     def receive_I2V(self, message):
         pass
 
-
 class HumanDrivenVehicle(BaseVehicle):
     '''人工驾驶的车，只相应信号灯'''
-    def __init__(self, id, veh_param, cf_param, init_v):
-        super().__init__(id, veh_param, cf_param, init_v)
+    def __init__(self, id, veh_param, cf_param, init_v, timestep):
+        super().__init__(id, veh_param, cf_param, init_v, timestep)
         
         # 控制信息
         self.track.confirm_ex_lane(0)
@@ -107,8 +107,8 @@ class HumanDrivenVehicle(BaseVehicle):
         # 限制最大最小值
         self.inst_a = min(max(self.inst_a, - self.max_dec), self.max_acc)
 
-    def update_position(self, dt, timestep):
-        switch_group = super().update_position(dt, timestep)
+    def update_position(self, dt):
+        switch_group = super().update_position(dt)
         if self.zone == 'ap' and self.inst_x > -50 and not self.cf_v0_backup:
             # 当距离交叉口较近时，期望速度改为交叉口限速，车头时距改小
             self.cf_v0_backup = self.cf_model.v0
@@ -132,8 +132,8 @@ class HumanDrivenVehicle(BaseVehicle):
 
 class DresnerVehicle(BaseVehicle):
     '''对应 Dresner 文中的自动驾驶车，响应 DresnerManager'''
-    def __init__(self, id, veh_param, cf_param, init_v):
-        super().__init__(id, veh_param, cf_param, init_v)
+    def __init__(self, id, veh_param, cf_param, init_v, timestep):
+        super().__init__(id, veh_param, cf_param, init_v, timestep)
         # 控制信息
         self.reservation = None
         self.timeout = 0         # Unit: s
@@ -185,6 +185,7 @@ class DresnerVehicle(BaseVehicle):
             if not lead_veh and not self.reservation:
                 # 已经没有前车了，就使劲预约
                 [arr_t, arr_v] = self.plan_arr()
+                logging.debug("veh %d, arr_t = %d, arr_v = %d, ap_acc_profile = %s" % (self._id, arr_t, arr_v, self.ap_acc_profile))
                 ComSystem.V2I(self, {
                     'type': 'request',
                     'veh_id': self._id, 
@@ -194,16 +195,20 @@ class DresnerVehicle(BaseVehicle):
                     'arr_lane': self.track.ap_lane, 
                     'turn_dir': self.track.turn_dir, 
                     'veh_len': self.veh_len, 
-                    'veh_wid': self.veh_wid
+                    'veh_wid': self.veh_wid, 
+                    'veh_len_front': self.veh_len_front,
+                    'max_acc': self.max_acc,
+                    'max_dec': self.max_dec
                 })
             if self.reservation:
                 # 预约成功，按照之前算的 plan 执行加速
                 for t, a in self.ap_acc_profile:
                     if self.timestep >= t:
                         self.inst_a = a
+                logging.debug("veh %d, according to ap_acc_profile, inst_a = %f" % (self._id, self.inst_a))
             else:
-                # 不成功，prepare to stop at stop bar 
-                self.inst_a = self.cf_model.acc_from_model(self.inst_v, - self.inst_x - self.veh_len_front, 0)
+                # 不成功，prepare to stop at stop bar & follow leading vehicle
+                self.inst_a = min(self.acc_with_lead_veh(lead_veh), self.cf_model.acc_from_model(self.inst_v, - self.inst_x - self.veh_len_front, 0))
         elif self.zone == 'ju':
             # 按照 reservation 的 acc 要求跑
             for t, a in self.reservation['acc']:
@@ -213,14 +218,15 @@ class DresnerVehicle(BaseVehicle):
             # exit lane, perform normal car following
             return super().update_control(lead_veh)
 
-    def update_position(self, dt, timestep):
-        if super().update_position(dt, timestep):
-            if self.zone == 'ex':
-                ComSystem.V2I(self, {
-                    'type': 'done',
-                    'veh_id': self._id, 
-                    'res_id': self.reservation['res_id']
-                })
+    def update_position(self, dt):
+        switch_group = super().update_position(dt)
+        if switch_group and self.zone == 'ex':
+            ComSystem.V2I(self, {
+                'type': 'done',
+                'veh_id': self._id, 
+                'res_id': self.reservation['res_id']
+            })
+        return switch_group
 
     def receive_broadcast(self, message):
         '''暂时不听'''
@@ -228,10 +234,11 @@ class DresnerVehicle(BaseVehicle):
 
     def receive_I2V(self, message):
         if message['type'] == 'acknowledge':
-            if message['res_id'] != self.reservation.id:
+            if message['res_id'] != self.reservation['res_id']:
                 print('Error: ack message with [\'res_id\'] = %d is sent to veh %d' % (message['res_id'], self._id))
         elif message['type'] == 'confirm':
             self.reservation = message['reservation']
+            self.track.confirm_ex_lane(self.reservation['ex_lane'])
         elif message['type'] == 'reject':
             self.timeout = message['timeout']
 
