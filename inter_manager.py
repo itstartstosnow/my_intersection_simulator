@@ -63,8 +63,6 @@ class DresnerManager(BaseInterManager):
         self.timestep = 0
         self.res_grid = DresnerResGrid(0.5) # 写到设置里？
         self.ex_lane_table = self.gen_ex_lane_table()
-        self.veh_dots_table = {}
-        self.gen_veh_dots(2, 4.8, 1)
         self.res_registery = {}
         self.veh_points = {}
 
@@ -156,12 +154,20 @@ class DresnerManager(BaseInterManager):
         else:
             return self.ex_lane_table[ap_arm + turn_dir]
 
-    def gen_veh_dots(self, veh_wid, veh_len, veh_len_front):
+    def gen_veh_dots(self, veh_wid, veh_len, veh_len_front, static_buf, time_buf):
         '''将车辆取成足够密的一个个散点。车辆的车头朝北，xy与画图逻辑坐标系同，x向右，y向下。车辆的前轮中心在(0,0)的位置。返回取到的系列点的x和y。'''
-        xs = np.arange(-veh_wid/2, veh_wid/2 + 1e-1, 0.2)
-        ys = np.arange(-veh_len_front, veh_len-veh_len_front + 1e-1, 0.2)
+        xs = np.arange(-veh_wid/2 - static_buf, veh_wid/2 + static_buf + 1e-1, 0.2)
+        ys = np.arange(-veh_len_front - static_buf, veh_len - veh_len_front + 1e-1 + static_buf, 0.2)
         xx, yy = np.meshgrid(xs, ys)
-        self.veh_dots_table[(veh_wid, veh_len, veh_len_front)] = [xx.flatten(), yy.flatten()]
+        if time_buf > static_buf:
+            xs_tb = np.arange(-veh_wid/2, veh_wid/2 + 1e-1, 0.2) # 车宽
+            ys_tb_front = np.arange(-veh_len_front - time_buf, -veh_len_front - static_buf + 1e-1, 0.2)
+            ys_tb_back = np.arange(veh_len - veh_len_front + static_buf, veh_len - veh_len_front + time_buf + 1e-1, 0.2)
+            ys_tb = np.append(ys_tb_front, ys_tb_back)
+            xx_tb, yy_tb = np.meshgrid(xs, ys)
+            xx = np.append(xx, xx_tb)
+            yy = np.append(yy, yy_tb)
+        return [xx.flatten(), yy.flatten()]
 
     def check_request(self, message): 
         # confirm时返回reservation，当reject时返回None
@@ -245,7 +251,8 @@ class DresnerManager(BaseInterManager):
                     y = seg[3][1] + seg[4] * math.sin(-rotation / 180 * math.pi)
             
             # 计算在逻辑坐标系上车辆的dots的xy坐标(先旋转，再置于xy)
-            veh_dots_x, veh_dots_y = self.veh_dots_table[(message['veh_wid'], message['veh_len'], message['veh_len_front'])]
+            veh_dots_x, veh_dots_y = self.gen_veh_dots(message['veh_wid'], message['veh_len'], message['veh_len_front'], \
+                0.4, v * 0.1)
             veh_dots_x_rt = veh_dots_x * math.cos(angle*math.pi/180) - veh_dots_y * math.sin(angle*math.pi/180)
             veh_dots_y_rt = veh_dots_y * math.cos(angle*math.pi/180) + veh_dots_x * math.sin(angle*math.pi/180)
             veh_dots_x_rt += x

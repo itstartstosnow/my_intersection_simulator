@@ -216,7 +216,7 @@ class DresnerVehicle(BaseVehicle):
                     self.inst_a = a
         else:
             # exit lane, perform normal car following
-            return super().update_control(lead_veh)
+            super().update_control(lead_veh)
 
     def update_position(self, dt):
         switch_group = super().update_position(dt)

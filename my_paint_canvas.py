@@ -7,7 +7,7 @@ from inter_manager import inter_manager
 from lib.settings import lane_width, turn_radius, arm_len, NS_lane_count, EW_lane_count, veh_dt, disp_dt
 
 from PyQt5.QtCore import Qt, QTimer, QPointF, QRectF, QLineF
-from PyQt5.QtGui import QPainter, QColor, QPen
+from PyQt5.QtGui import QPainter, QColor, QPen, QFont
 from PyQt5.QtWidgets import QWidget
 
 class MyPaintCanvas(QWidget):
@@ -156,7 +156,7 @@ class MyPaintCanvas(QWidget):
             qp.drawArc(ele[0], ele[1], ele[2])                      
 
         # 车道中心线
-        qp.setPen(QPen(QColor(242, 184, 0), 0.2, Qt.SolidLine))
+        qp.setPen(QPen(QColor(242, 184, 0), 0.3, Qt.SolidLine))
         for ele in self.draw_road_shape['center_Qlines']:
             qp.drawLine(ele)
 
@@ -166,7 +166,7 @@ class MyPaintCanvas(QWidget):
             qp.drawLine(ele)
 
         # 停车线
-        qp.setPen(QPen(QColor(244, 82, 79), 0.2, Qt.SolidLine))
+        qp.setPen(QPen(QColor(244, 82, 79), 0.4, Qt.SolidLine))
         for ele in self.draw_road_shape['stop_Qlines']:
             qp.drawLine(ele)
 
@@ -179,6 +179,11 @@ class MyPaintCanvas(QWidget):
     
     def draw_vehs(self, qp):
         qp.setBrush(QColor(49, 58, 135))
+        qp.setPen(QPen(QColor(255, 152, 146), 0.1, Qt.SolidLine))
+        qf = qp.font()
+        qf.setPointSizeF(2.5)
+        qf.setFamily('Consolas')
+        qp.setFont(qf)
         x1 = self.lw * self.NSl
         x2 = x1 + self.tr 
         y1 = self.lw * self.EWl
@@ -186,35 +191,51 @@ class MyPaintCanvas(QWidget):
         for veh in Simulator.getInstance().all_veh['Nap']: 
             x = - (self.lw / 2 + self.lw * veh.inst_lane)
             y = - (y2 + (-veh.inst_x))
-            qp.drawRect(QRectF(x - veh.veh_wid/2, y - veh.veh_len_back, veh.veh_wid, veh.veh_len))
+            rect = QRectF(x - veh.veh_wid/2, y - veh.veh_len_back, veh.veh_wid, veh.veh_len)
+            qp.drawRect(rect)
+            # qp.drawText(rect.bottomLeft(), str(veh._id))
         for veh in Simulator.getInstance().all_veh['Nex']: 
             x = self.lw / 2 + self.lw * veh.inst_lane
             y = - (y2 + (veh.inst_x))
-            qp.drawRect(QRectF(x - veh.veh_wid/2, y - veh.veh_len_front, veh.veh_wid, veh.veh_len))
+            rect = QRectF(x - veh.veh_wid/2, y - veh.veh_len_front, veh.veh_wid, veh.veh_len)
+            qp.drawRect(rect)
+            # qp.drawText(rect.bottomLeft(), str(veh._id))
         for veh in Simulator.getInstance().all_veh['Sap']:
             x = self.lw / 2 + self.lw * veh.inst_lane
             y = y2 + (-veh.inst_x)
-            qp.drawRect(QRectF(x - veh.veh_wid/2, y - veh.veh_len_front, veh.veh_wid, veh.veh_len))
+            rect = QRectF(x - veh.veh_wid/2, y - veh.veh_len_front, veh.veh_wid, veh.veh_len)
+            qp.drawRect(rect)
+            # qp.drawText(rect.bottomLeft(), str(veh._id))
         for veh in Simulator.getInstance().all_veh['Sex']:
             x = - (self.lw / 2 + self.lw * veh.inst_lane)
             y = y2 + veh.inst_x
-            qp.drawRect(QRectF(x - veh.veh_wid/2, y - veh.veh_len_back, veh.veh_wid, veh.veh_len))
+            rect = QRectF(x - veh.veh_wid/2, y - veh.veh_len_back, veh.veh_wid, veh.veh_len)
+            qp.drawRect(rect)
+            # qp.drawText(rect.bottomLeft(), str(veh._id))
         for veh in Simulator.getInstance().all_veh['Wap']:
             x = - (x2 + (-veh.inst_x))
             y = self.lw / 2 + self.lw * veh.inst_lane
-            qp.drawRect(QRectF(x - veh.veh_len_back, y - veh.veh_wid/2, veh.veh_len, veh.veh_wid))
+            rect = QRectF(x - veh.veh_len_back, y - veh.veh_wid/2, veh.veh_len, veh.veh_wid)
+            qp.drawRect(rect)
+            # qp.drawText(rect.bottomLeft(), str(veh._id))
         for veh in Simulator.getInstance().all_veh['Wex']:
             x = - (x2 + veh.inst_x)
             y = - (self.lw / 2 + self.lw * veh.inst_lane)
-            qp.drawRect(QRectF(x - veh.veh_len_front, y - veh.veh_wid/2, veh.veh_len, veh.veh_wid))
+            rect = QRectF(x - veh.veh_len_front, y - veh.veh_wid/2, veh.veh_len, veh.veh_wid)
+            qp.drawRect(rect)
+            # qp.drawText(rect.bottomLeft(), str(veh._id))
         for veh in Simulator.getInstance().all_veh['Eap']:
             x = x2 + (-veh.inst_x)
             y = - (self.lw / 2 + self.lw * veh.inst_lane)
-            qp.drawRect(QRectF(x - veh.veh_len_front, y - veh.veh_wid/2, veh.veh_len, veh.veh_wid)) 
+            rect = QRectF(x - veh.veh_len_front, y - veh.veh_wid/2, veh.veh_len, veh.veh_wid)
+            qp.drawRect(rect)
+            # qp.drawText(rect.bottomLeft(), str(veh._id))
         for veh in Simulator.getInstance().all_veh['Eex']:
             x = x2 + veh.inst_x
             y = self.lw / 2 + self.lw * veh.inst_lane
-            qp.drawRect(QRectF(x - veh.veh_len_back, y - veh.veh_wid/2, veh.veh_len, veh.veh_wid)) 
+            rect = QRectF(x - veh.veh_len_front, y - veh.veh_wid/2, veh.veh_len, veh.veh_wid)
+            qp.drawRect(rect)
+            # qp.drawText(rect.bottomLeft(), str(veh._id))
         for veh in Simulator.getInstance().all_veh['ju']:
             # 寻找在哪一段上 
             seg_idx = 0
@@ -232,27 +253,39 @@ class MyPaintCanvas(QWidget):
                     x = seg[1][0]
                     if seg[1][1] < seg[2][1]: # 从上到下
                         y = seg[1][1] + seg_x
-                        qp.drawRect(QRectF(x - veh.veh_wid/2, y - veh.veh_len_back, veh.veh_wid, veh.veh_len)) 
+                        rect = QRectF(x - veh.veh_wid/2, y - veh.veh_len_back, veh.veh_wid, veh.veh_len)
+                        qp.drawRect(rect)
+                        # qp.drawText(rect.bottomLeft(), str(veh._id))
                     else: # 从下到上
                         y = seg[1][1] - seg_x
-                        qp.drawRect(QRectF(x - veh.veh_wid/2, y - veh.veh_len_front, veh.veh_wid, veh.veh_len)) 
+                        rect = QRectF(x - veh.veh_wid/2, y - veh.veh_len_front, veh.veh_wid, veh.veh_len)
+                        qp.drawRect(rect)
+                        # qp.drawText(rect.bottomLeft(), str(veh._id))
                 else: # 横线 
                     y = seg[1][1]
                     if seg[1][0] < seg[2][0]: # 从左向右
                         x = seg[1][0] + seg_x
-                        qp.drawRect(QRectF(x - veh.veh_len_back, y - veh.veh_wid/2, veh.veh_len, veh.veh_wid)) 
+                        rect = QRectF(x - veh.veh_len_back, y - veh.veh_wid/2, veh.veh_len, veh.veh_wid)
+                        qp.drawRect(rect)
+                        # qp.drawText(rect.bottomLeft(), str(veh._id))
                     else: # 从右向左
                         x = seg[1][0] - seg_x
-                        qp.drawRect(QRectF(x - veh.veh_len_front, y - veh.veh_wid/2, veh.veh_len, veh.veh_wid)) 
+                        rect = QRectF(x - veh.veh_len_front, y - veh.veh_wid/2, veh.veh_len, veh.veh_wid)
+                        qp.drawRect(rect)
+                        # qp.drawText(rect.bottomLeft(), str(veh._id))
             else: # 圆曲线
                 qp.save()
                 qp.translate(seg[3][0], seg[3][1])
                 if seg[5][0] < seg[5][1]: # 轨迹逆时针
                     rotation = seg[5][0] + seg_x / seg[4] * 180 / math.pi
                     qp.rotate(- rotation) # rotate 是顺时针的度数
-                    qp.drawRect(QRectF(seg[4] - veh.veh_wid/2, - veh.veh_len_front, veh.veh_wid, veh.veh_len))
+                    rect = QRectF(seg[4] - veh.veh_wid/2, - veh.veh_len_front, veh.veh_wid, veh.veh_len)
+                    qp.drawRect(rect)
+                    # qp.drawText(rect.bottomLeft(), str(veh._id))
                 else:
                     rotation = seg[5][0] - seg_x / seg[4] * 180 / math.pi
                     qp.rotate(- rotation)
-                    qp.drawRect(QRectF(seg[4] - veh.veh_wid/2, - veh.veh_len_back, veh.veh_wid, veh.veh_len))
+                    rect = QRectF(seg[4] - veh.veh_wid/2, - veh.veh_len_back, veh.veh_wid, veh.veh_len)
+                    qp.drawRect(rect)
+                    # qp.drawText(rect.bottomLeft(), str(veh._id))
                 qp.restore()
