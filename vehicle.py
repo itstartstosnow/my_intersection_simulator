@@ -76,7 +76,7 @@ class BaseVehicle:
             self.inst_lane = self.track.ex_lane
             return True
         
-        logging.debug("time %d, veh %d, %s, lane %d, x = %.1f, v = %.1f" % (self.timestep, self._id, self.zone, self.inst_lane, self.inst_x, self.inst_v))
+        logging.debug("%d, %d, %s, %d, %.2f, %.2f" % (self.timestep, self._id, self.zone, self.inst_lane, self.inst_x, self.inst_v))
         return False
 
     def receive_broadcast(self, message):
@@ -185,7 +185,7 @@ class DresnerVehicle(BaseVehicle):
             if not lead_veh and not self.reservation:
                 # 已经没有前车了，就使劲预约
                 [arr_t, arr_v] = self.plan_arr()
-                logging.debug("veh %d, arr_t = %d, arr_v = %d, ap_acc_profile = %s" % (self._id, arr_t, arr_v, self.ap_acc_profile))
+                # logging.debug("veh %d, arr_t = %d, arr_v = %d, ap_acc_profile = %s" % (self._id, arr_t, arr_v, self.ap_acc_profile))
                 ComSystem.V2I(self, {
                     'type': 'request',
                     'veh_id': self._id, 
@@ -205,7 +205,7 @@ class DresnerVehicle(BaseVehicle):
                 for t, a in self.ap_acc_profile:
                     if self.timestep >= t:
                         self.inst_a = a
-                logging.debug("veh %d, according to ap_acc_profile, inst_a = %f" % (self._id, self.inst_a))
+                # logging.debug("veh %d, according to ap_acc_profile, inst_a = %f" % (self._id, self.inst_a))
             else:
                 # 不成功，prepare to stop at stop bar & follow leading vehicle
                 self.inst_a = min(self.acc_with_lead_veh(lead_veh), self.cf_model.acc_from_model(self.inst_v, - self.inst_x - self.veh_len_front, 0))

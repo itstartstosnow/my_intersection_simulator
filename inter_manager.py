@@ -164,7 +164,7 @@ class DresnerManager(BaseInterManager):
             ys_tb_front = np.arange(-veh_len_front - time_buf, -veh_len_front - static_buf + 1e-1, 0.2)
             ys_tb_back = np.arange(veh_len - veh_len_front + static_buf, veh_len - veh_len_front + time_buf + 1e-1, 0.2)
             ys_tb = np.append(ys_tb_front, ys_tb_back)
-            xx_tb, yy_tb = np.meshgrid(xs, ys)
+            xx_tb, yy_tb = np.meshgrid(xs_tb, ys_tb)
             xx = np.append(xx, xx_tb)
             yy = np.append(yy, yy_tb)
         return [xx.flatten(), yy.flatten()]
@@ -177,18 +177,30 @@ class DresnerManager(BaseInterManager):
             ju_track = Map.getInstance().get_ju_track(message['arr_arm'], message['turn_dir'], message['arr_lane'], ex_lane)
             ju_shape_end_x = Track.cal_ju_shape_end_x(ju_track)
             # 加速到最高速度 - 匀速 方案
-            acc_acc = []
             acc_distance = (inter_v_lim**2 - message['arr_v']**2) / 2 / message['max_acc']
             if acc_distance >= ju_shape_end_x[-1]: 
                 # 全程加速
-                acc_acc.append([message['arr_t'], message['max_acc']])
+                acc_acc = [[message['arr_t'], message['max_acc']]]
             else:
                 # 加速-匀速
                 acc_time = (inter_v_lim - message['arr_v']) / message['max_acc']
-                acc_acc.append([message['arr_t'], message['max_acc']])
-                acc_acc.append([message['arr_t']+acc_time, 0])
+                acc_acc = [
+                    [message['arr_t'], message['max_acc']], 
+                    [message['arr_t'] + acc_time, 0]
+                ]
             # 匀速方案
-            acc_const_v = [[message['arr_t'], 0]]
+            if message['arr_v'] < 4: # 速度小于 14.4 km/h，也就是 30 米的路口需要七八秒以上才能通过，太慢了
+                acc_distance_c = (8**2 - message['arr_v']**2) / 2 / message['max_acc']
+                if acc_distance_c >= ju_shape_end_x[-1]: 
+                    acc_const_v = [[message['arr_t'], message['max_acc']]]
+                else:
+                    acc_time_c = (8 - message['arr_v']) / message['max_acc']
+                    acc_const_v = [
+                        [message['arr_t'], message['max_acc']], 
+                        [message['arr_t'] + acc_time, 0]
+                    ]
+            else: # 速度不是过慢，这才能匀速
+                acc_const_v = [[message['arr_t'], 0]]
             if self.check_cells_stepwise(message, ju_track, ju_shape_end_x, acc_acc):
                 return {
                     'res_id': 0, # Todo
@@ -360,7 +372,7 @@ class ComSystem:
 
     @staticmethod
     def I_broadcast(message):
-        logging.debug(str(message))
+        # logging.debug(str(message))
         for group, vehs in simulator.Simulator.getInstance().all_veh.items():
             for veh in vehs:
                 veh.receive_broadcast(message)

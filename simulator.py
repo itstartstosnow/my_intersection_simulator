@@ -66,7 +66,7 @@ class Simulator:
 
         for group, vehs in self.all_veh.items():
             vehs.sort(key=lambda veh: veh.inst_x) # 按照x从小到大排序
-            logging.debug("group %s: veh %s" % (group, [veh._id for veh in vehs])) 
+            # logging.debug("group %s: veh %s" % (group, [veh._id for veh in vehs])) 
 
     def remove_out_veh(self):
         '''删去跑出仿真区域的车辆'''

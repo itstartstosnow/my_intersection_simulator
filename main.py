@@ -1,11 +1,14 @@
 import sys
+import time
 import logging
 
 from PyQt5.QtWidgets import QApplication
 from my_main_window import MyMainWindow
 
 if __name__ == '__main__':
-    logging.basicConfig(filename='log/190507.log', level=logging.DEBUG)
+    log_fname = 'log/log %s.log' % time.strftime("%Y-%m-%d %H-%M-%S")
+    logging.basicConfig(filename=log_fname, format='%(message)s', level=logging.DEBUG)
+    logging.debug('t, veh._id, zone, lane, x, v')
 
     app = QApplication(sys.argv)
     window = MyMainWindow()

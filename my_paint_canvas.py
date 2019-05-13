@@ -233,7 +233,7 @@ class MyPaintCanvas(QWidget):
         for veh in Simulator.getInstance().all_veh['Eex']:
             x = x2 + veh.inst_x
             y = self.lw / 2 + self.lw * veh.inst_lane
-            rect = QRectF(x - veh.veh_len_front, y - veh.veh_wid/2, veh.veh_len, veh.veh_wid)
+            rect = QRectF(x - veh.veh_len_back, y - veh.veh_wid/2, veh.veh_len, veh.veh_wid)
             qp.drawRect(rect)
             # qp.drawText(rect.bottomLeft(), str(veh._id))
         for veh in Simulator.getInstance().all_veh['ju']:
