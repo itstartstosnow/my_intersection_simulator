@@ -1,7 +1,7 @@
 import math
 import logging
 
-from lib.settings import inter_control_mode, lane_width, turn_radius, arm_len, NS_lane_count, EW_lane_count, veh_dt, inter_v_lim
+from lib.settings import inter_control_mode, lane_width, turn_radius, arm_len, NS_lane_count, EW_lane_count, veh_dt, inter_v_lim, inter_v_lim_min
 from map import Map, Track
 
 import numpy as np
@@ -64,7 +64,6 @@ class DresnerManager(BaseInterManager):
         self.res_grid = DresnerResGrid(0.5) # 写到设置里？
         self.ex_lane_table = self.gen_ex_lane_table()
         self.res_registery = {}
-        self.veh_points = {}
 
     def update(self):
         super().update()
@@ -189,7 +188,7 @@ class DresnerManager(BaseInterManager):
                     [message['arr_t'] + acc_time, 0]
                 ]
             # 匀速方案
-            if message['arr_v'] < 4: # 速度小于 14.4 km/h，也就是 30 米的路口需要七八秒以上才能通过，太慢了
+            if message['arr_v'] < inter_v_lim_min: # 速度小于 14.4 km/h，也就是 30 米的路口需要七八秒以上才能通过，太慢了
                 acc_distance_c = (8**2 - message['arr_v']**2) / 2 / message['max_acc']
                 if acc_distance_c >= ju_shape_end_x[-1]: 
                     acc_const_v = [[message['arr_t'], message['max_acc']]]
@@ -201,7 +200,7 @@ class DresnerManager(BaseInterManager):
                     ]
             else: # 速度不是过慢，这才能匀速
                 acc_const_v = [[message['arr_t'], 0]]
-            if self.check_cells_stepwise(message, ju_track, ju_shape_end_x, acc_acc):
+            if self.check_cells_stepwise(message, ju_track, ju_shape_end_x, ex_arm, ex_lane, acc_acc):
                 return {
                     'res_id': 0, # Todo
                     'ex_lane': ex_lane,
@@ -209,7 +208,7 @@ class DresnerManager(BaseInterManager):
                     'arr_v': message['arr_v'],
                     'acc': acc_acc
                 }
-            elif self.check_cells_stepwise(message, ju_track, ju_shape_end_x, acc_const_v):
+            elif self.check_cells_stepwise(message, ju_track, ju_shape_end_x, ex_arm, ex_lane, acc_const_v):
                 return {
                     'res_id': 0, # Todo
                     'ex_lane': ex_lane,
@@ -219,7 +218,7 @@ class DresnerManager(BaseInterManager):
                 }
         return None
             
-    def check_cells_stepwise(self, message, ju_track, ju_shape_end_x, acc):
+    def check_cells_stepwise(self, message, ju_track, ju_shape_end_x, ex_arm, ex_lane, acc):
         t = message['arr_t']
         v = message['arr_v']
         x_1d = 0
@@ -263,6 +262,10 @@ class DresnerManager(BaseInterManager):
                     y = seg[3][1] + seg[4] * math.sin(-rotation / 180 * math.pi)
             
             # 计算在逻辑坐标系上车辆的dots的xy坐标(先旋转，再置于xy)
+            # if ju_shape_end_x[-1] - x_1d < 2: # 还有 2m, 算是 edge_tile
+            #     time_buf = v * 0.8
+            # else:
+            #     time_buf = v * 0.1
             veh_dots_x, veh_dots_y = self.gen_veh_dots(message['veh_wid'], message['veh_len'], message['veh_len_front'], \
                 0.4, v * 0.1)
             veh_dots_x_rt = veh_dots_x * math.cos(angle*math.pi/180) - veh_dots_y * math.sin(angle*math.pi/180)
@@ -276,7 +279,7 @@ class DresnerManager(BaseInterManager):
             if t_slice[0] >= self.res_grid.cells.shape[2]:
                 self.res_grid.add_time_dimension()
             
-            # 如果不为空，失败
+            # 检查占用的格点是否都空
             if np.sum(self.res_grid.cells[i, j, t_slice] != -1) == 0:
                 self.res_grid.cells[i, j, t_slice] = message['veh_id']
             else:
@@ -293,6 +296,14 @@ class DresnerManager(BaseInterManager):
             if x_1d > ju_shape_end_x[seg_idx]:
                 seg_idx += 1 # 如果已经是最后一段形状的话，会退出循环的，没事
 
+        occ_start = math.floor(t - (v - inter_v_lim_min) / message['max_dec'] / veh_dt)
+        occ_end = t
+        for record in self.res_grid.ex_lane_record[ex_arm + str(ex_lane)]:
+            if not (record[1] > occ_end or record[2] < occ_start):
+                self.res_grid.clear_veh_cell(message['veh_id'])
+                return False
+
+        self.res_grid.ex_lane_record[ex_arm + str(ex_lane)].append([message['veh_id'], occ_start, occ_end])
         return True
         # Todo：注意一下出口道的问题，文中用edge_tile实线的，我或许要记一下各个出口道的安排
     
@@ -315,6 +326,7 @@ class DresnerResGrid:
         self.t_start = 0 # 第三维 t=0 对应的 timestep
 
         self.cells = - np.ones(shape=(self.i_n, self.j_n, int(20/veh_dt)), dtype=np.int16)
+        self.ex_lane_record = self.init_ex_lane_record() # 这个是为了在出口道不相撞，每辆车到达之前的某段时间不可以有车到达
 
     def xy_to_ij(self, x_arr, y_arr):
         '''
@@ -334,6 +346,16 @@ class DresnerResGrid:
         j_arr[j_arr>=self.j_n] = self.j_n-1
         return [i_arr, j_arr]
 
+    def init_ex_lane_record(self):
+        ex_lane_record = {}
+        for i in range(NS_lane_count):
+            ex_lane_record['N' + str(i)] = [] # 每个元素是[veh_id, occ_start, occ_end]
+            ex_lane_record['S' + str(i)] = []
+        for i in range(EW_lane_count):
+            ex_lane_record['E' + str(i)] = []
+            ex_lane_record['W' + str(i)] = []
+        return ex_lane_record
+    
     def clear_veh_cell(self, veh_id):
         '''清除某个车辆 veh_id 占用的所有格子'''
         self.cells[self.cells == veh_id] = -1
@@ -347,6 +369,10 @@ class DresnerResGrid:
         if timestep - self.t_start > 20:
             self.cells = self.cells[:, :, (timestep - self.t_start):]
             self.t_start = timestep
+        for key, value in self.ex_lane_record.items():
+            for record in value:
+                if record[2] < timestep:
+                    value.remove(record) # 删掉出口道里时间已过的信息
 
 # 根据设置选择某个实现
 if inter_control_mode == 'traffic light':

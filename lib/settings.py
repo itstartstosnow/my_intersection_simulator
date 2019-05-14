@@ -10,6 +10,7 @@ NS_lane_count = 3
 EW_lane_count = 3
 arm_v_lim = 16.66    # 60 km/h
 inter_v_lim = 11.11  # 交叉口区域的限速
+inter_v_lim_min = 4  # Dresner 方案中通过交叉口的最慢速度
 
 ########################## 车辆参数设置 ##########################
 veh_param = {

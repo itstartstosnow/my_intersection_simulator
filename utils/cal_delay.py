@@ -6,7 +6,7 @@ from lib.settings import veh_param, cf_param, inter_v_lim, arm_len, veh_dt
 import numpy as np
 import matplotlib.pyplot as plt
 
-fname = '../log/log 2019-05-13 20-20-14.log'
+fname = '../log/log 2019-05-14 11-20-53.log'
 file = open(fname)
 reader = csv.reader(file)
 # 列分别是 start_time, ju_track_len, removed_time, is_removed
@@ -22,7 +22,7 @@ for i, row in enumerate(reader):
         veh_info_table[veh_id, 1] = max(veh_info_table[veh_id, 1], x)
     if zone == 'ex':
         veh_info_table[veh_id, 2] = max(veh_info_table[veh_id, 2], t)
-        if x > arm_len + (veh_param['veh_len'] - veh_param['veh_len_front']):
+        if x >= arm_len + (veh_param['veh_len'] - veh_param['veh_len_front']):
             veh_info_table[veh_id, 3] = 1
 
 veh_not_finish_min = np.where(veh_info_table[:, 3] < 0)[0][0] # 最小的没有完成全程的车辆
