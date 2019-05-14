@@ -1,7 +1,7 @@
 import math
 import logging
 
-from lib.settings import inter_control_mode, lane_width, turn_radius, arm_len, NS_lane_count, EW_lane_count, veh_dt, inter_v_lim, inter_v_lim_min
+from lib.settings import inter_control_mode, lane_width, turn_radius, arm_len, NS_lane_count, EW_lane_count, veh_dt, inter_v_lim, inter_v_lim_min, min_gen_ht
 from map import Map, Track
 
 import numpy as np
@@ -196,7 +196,7 @@ class DresnerManager(BaseInterManager):
                     acc_time_c = (8 - message['arr_v']) / message['max_acc']
                     acc_const_v = [
                         [message['arr_t'], message['max_acc']], 
-                        [message['arr_t'] + acc_time, 0]
+                        [message['arr_t'] + acc_time_c, 0]
                     ]
             else: # 速度不是过慢，这才能匀速
                 acc_const_v = [[message['arr_t'], 0]]
@@ -296,16 +296,17 @@ class DresnerManager(BaseInterManager):
             if x_1d > ju_shape_end_x[seg_idx]:
                 seg_idx += 1 # 如果已经是最后一段形状的话，会退出循环的，没事
 
-        occ_start = math.floor(t - (v - inter_v_lim_min) / message['max_dec'] / veh_dt)
-        occ_end = t
+        occ_dura = max((v-inter_v_lim_min)/message['max_dec'] + message['veh_len']/v, min_gen_ht)
+        occ_start = math.floor(t - (occ_dura / veh_dt))
+        occ_end = math.ceil(t)
         for record in self.res_grid.ex_lane_record[ex_arm + str(ex_lane)]:
             if not (record[1] > occ_end or record[2] < occ_start):
                 self.res_grid.clear_veh_cell(message['veh_id'])
                 return False
 
         self.res_grid.ex_lane_record[ex_arm + str(ex_lane)].append([message['veh_id'], occ_start, occ_end])
+        logging.debug(str(self.res_grid.ex_lane_record[ex_arm + str(ex_lane)]))
         return True
-        # Todo：注意一下出口道的问题，文中用edge_tile实线的，我或许要记一下各个出口道的安排
     
 class DresnerResGrid:
     '''a grid representation of intersection area'''

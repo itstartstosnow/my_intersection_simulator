@@ -6,7 +6,7 @@ from lib.settings import veh_param, cf_param, inter_v_lim, arm_len, veh_dt
 import numpy as np
 import matplotlib.pyplot as plt
 
-fname = '../log/log 2019-05-14 11-20-53.log'
+fname = '../log/log 2019-05-14 11-34-17.log'
 file = open(fname)
 reader = csv.reader(file)
 # 列分别是 start_time, ju_track_len, removed_time, is_removed

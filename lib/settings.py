@@ -30,7 +30,7 @@ cf_param = {
     'T': 1.4,
     's0': 1.5,
     'a': 1.5,
-    'b': 2 
+    'b': 3 
 }
 
 ########################## 边界条件设置 ##########################
@@ -63,13 +63,27 @@ veh_gen_rule_table = {
     # 'Wl': [0        , 0        , 0        ],
     # 'Wt': [0        , 0        , 0        ], 
     # 'Wr': [0        , 0        , 0        ],
+
+    # # 单车道的情况
+    # 'Nl': [400], 
+    # 'Nt': [800], 
+    # 'Nr': [400], 
+    # 'Sl': [400], 
+    # 'St': [800], 
+    # 'Sr': [400], 
+    # 'El': [400], 
+    # 'Et': [800], 
+    # 'Er': [400], 
+    # 'Wl': [400], 
+    # 'Wt': [800], 
+    # 'Wr': [400]
 }
 # 车辆生成时的初始位置
 gen_init_x = - arm_len
 # 车辆生成时的初始速度（在路段行驶的速度）
 gen_init_v = cf_param['v0']
 # 一个车道上生成连续两辆车的最短空距、时距，以防止车辆相撞。单位：米、秒
-min_gen_hs = veh_param['veh_len'] + cf_param['s0'] + gen_init_v * cf_param['T']
+min_gen_hs = veh_param['veh_len'] + cf_param['s0'] + gen_init_v**2 / 2 / veh_param['max_dec']
 min_gen_ht = min_gen_hs / gen_init_v
 for key, value in veh_gen_rule_table.items():
     for i in range(len(value)):
