@@ -21,10 +21,10 @@ class TrafficLightManager(BaseInterManager):
         self.current_phase = 0
         self.current_elapsed_time = 0
         self.phase = [
-            [200, 'Nl', 'Sl'],
-            [250, 'Nt', 'St', 'Nr', 'Sr'],
-            [200, 'El', 'Wl'],
-            [250, 'Et', 'Wt', 'Er', 'Wr']
+            [150, 'Nl', 'Sl', 'Nr', 'Sr'],
+            [220, 'Nt', 'St', 'Nr', 'Sr'],
+            [150, 'El', 'Wl', 'Nr', 'Sr'],
+            [220, 'Et', 'Wt', 'Nr', 'Sr']
         ]
 
     def update(self):
@@ -60,7 +60,6 @@ class TrafficLightManager(BaseInterManager):
 class DresnerManager(BaseInterManager):
     def __init__(self):
         super().__init__()
-        self.timestep = 0
         self.res_grid = DresnerResGrid(0.5) # 写到设置里？
         self.ex_lane_table = self.gen_ex_lane_table()
         self.res_registery = {}
@@ -262,10 +261,6 @@ class DresnerManager(BaseInterManager):
                     y = seg[3][1] + seg[4] * math.sin(-rotation / 180 * math.pi)
             
             # 计算在逻辑坐标系上车辆的dots的xy坐标(先旋转，再置于xy)
-            # if ju_shape_end_x[-1] - x_1d < 2: # 还有 2m, 算是 edge_tile
-            #     time_buf = v * 0.8
-            # else:
-            #     time_buf = v * 0.1
             veh_dots_x, veh_dots_y = self.gen_veh_dots(message['veh_wid'], message['veh_len'], message['veh_len_front'], \
                 0.4, v * 0.1)
             veh_dots_x_rt = veh_dots_x * math.cos(angle*math.pi/180) - veh_dots_y * math.sin(angle*math.pi/180)

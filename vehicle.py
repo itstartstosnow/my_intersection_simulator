@@ -61,10 +61,11 @@ class BaseVehicle:
         '''相当于做积分，更新位置和速度. 返回：zone是否发生了更改'''
         self.timestep += 1
 
+        if self.inst_v <= 0 and self.inst_a <= 0: # 在已经停车时加速度再为负也不能倒车了
+            self.inst_a = 0
         self.inst_x += self.inst_a * (dt ** 2) / 2 + self.inst_v * dt
         self.inst_v += self.inst_a * dt
-        self.inst_v = min(self.inst_v, self.max_v)
-        self.inst_v = max(self.inst_v, 0)
+        self.inst_v = min(max(self.inst_v, 0), self.max_v)
 
         if self.zone == 'ap' and self.inst_x >= 0:
             self.zone = 'ju'
@@ -142,7 +143,7 @@ class DresnerVehicle(BaseVehicle):
         self.ap_acc_profile = None
 
     def plan_arr(self):
-        '''按照 arr_v 最大、arr_t 最大计划到达时间和速度。因为只有一个车道的头车才能计划这个，因此只要获得预约，计划肯定能被执行'''
+        '''按照 arr_v 最大、arr_t 最早计划到达时间和速度。因为只有一个车道的头车才能计划这个，因此只要获得预约，计划肯定能被执行'''
         if self.inst_v < inter_v_lim: 
             acc_distance = (inter_v_lim**2 - self.inst_v**2) / 2 / self.max_acc # 加速到 v_lim 所需要的距离
             if acc_distance >= (-self.inst_x):
@@ -217,6 +218,9 @@ class DresnerVehicle(BaseVehicle):
         else:
             # exit lane, perform normal car following
             super().update_control(lead_veh)
+        # # 测试撞车用
+        # if self.inst_x > -50 and self.inst_v > 0:
+        #     self.inst_a = -6
 
     def update_position(self, dt):
         switch_group = super().update_position(dt)

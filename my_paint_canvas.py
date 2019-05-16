@@ -61,7 +61,7 @@ class MyPaintCanvas(QWidget):
         qp.setWindow(- window_wid / 2, - window_hgt / 2, window_wid, window_hgt)
 
         self.draw_road(qp)
-        self.draw_traj(qp) # 显示轨迹，调试用
+        # self.draw_traj(qp) # 显示轨迹，调试用
         self.draw_vehs(qp)
 
         self.mainw.step_lbl.setText("Timestep: %4d" % Simulator.getInstance().timestep)

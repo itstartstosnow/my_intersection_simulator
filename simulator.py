@@ -2,7 +2,7 @@ import copy
 import logging
 
 from vehicle import Vehicle
-from lib.settings import arm_len, veh_dt, veh_param, cf_param, veh_gen_rule_table, min_gen_hs, gen_init_v, gen_init_x
+from lib.settings import arm_len, veh_dt, veh_param, cf_param, NS_lane_count, EW_lane_count, veh_gen_rule_table, min_gen_hs, gen_init_v, gen_init_x
 
 import numpy as np
 
@@ -23,7 +23,11 @@ class Simulator:
 
         self.timestep = 0
 
-        self.gen_veh_count = 0  # generated vehicle count
+        # 生成车辆的计数，用于车辆 ID 的分配
+        self.gen_veh_count = 0  
+        # 每条车道未放进仿真区域的车辆队列，参照 Meng2018Analysis 文章
+        self.point_queue_table = self.init_point_queue_table()
+        # 仿真区域的车辆
         self.all_veh = {
             'Nap': [],
             'Sap': [],
@@ -45,7 +49,7 @@ class Simulator:
         self.update_all_control()
 
     def all_update_position(self):
-        '''更新所有车辆位置，顺便记录分组有变化的车辆'''
+        '''对于在 all_veh 中的车辆，更新位置，顺便记录分组有变化的车辆'''
         to_switch_group = []
         for group, vehs in self.all_veh.items():
             for veh in vehs:
@@ -79,23 +83,37 @@ class Simulator:
         for group, veh in to_delete:
             self.all_veh[group].remove(veh)
 
+    def init_point_queue_table(self):
+        point_queue_table = {}
+        for i in range(NS_lane_count):
+            point_queue_table['N' + str(i)] = [] # 列表中的元素是将要生成的各车辆的转向
+            point_queue_table['S' + str(i)] = []
+        for i in range(EW_lane_count):
+            point_queue_table['E' + str(i)] = []
+            point_queue_table['W' + str(i)] = []
+        return point_queue_table       
+
     def gen_new_veh(self): 
-        '''按照概率在进口道起始位置生成新的车辆'''
-        for ap_arm in 'NSEW':
-            for turn_dir in 'lrt':
+        '''按照概率在 point_queue 生成新的车辆，如果可行，将一辆车放进仿真区域'''
+        for ap_arm in 'NSEW': # 各个进口道路
+            for turn_dir in 'lrt': # 各个方向
                 probs = veh_gen_rule_table[ap_arm + turn_dir]
-                for (i, prob) in enumerate(probs): # 第 i 个车道
-                    if prob == 0: 
-                        continue
-                    latest_veh = None 
-                    for some_veh in self.all_veh[ap_arm + 'ap']:
-                        if some_veh.inst_lane == i:
-                            latest_veh = some_veh
-                            break
-                    if not latest_veh or (latest_veh.inst_x - gen_init_x) > min_gen_hs: 
-                        if np.random.rand() < prob:
-                            new_veh = self.make_veh(ap_arm, i, turn_dir)
-                            self.all_veh[str(ap_arm) + 'ap'].insert(0, new_veh)
+                for (lane, prob) in enumerate(probs): # 第 lane 个车道 
+                    if np.random.rand() < prob:
+                        self.point_queue_table[ap_arm + str(lane)].insert(0, turn_dir)
+        for ap_arm_lane, queue in self.point_queue_table.items():
+            ap_arm = ap_arm_lane[0]
+            lane = int(ap_arm_lane[1])
+            latest_veh = None 
+            for some_veh in self.all_veh[ap_arm + 'ap']:
+                if some_veh.inst_lane == lane:
+                    latest_veh = some_veh
+                    break
+            if not latest_veh or (latest_veh.inst_x - gen_init_x) > min_gen_hs:
+                if len(queue) > 0: 
+                    new_veh = self.make_veh(ap_arm, lane, queue.pop())
+                    self.all_veh[ap_arm + 'ap'].insert(0, new_veh)
+                    logging.debug('point_queue_table[%s] = %s' % (ap_arm_lane, str(queue)))
                     
     def make_veh(self, ap_arm, ap_lane, turn_dir):
         '''创建一个车辆对象并返回'''
