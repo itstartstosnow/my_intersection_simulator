@@ -1,7 +1,7 @@
 import math
 import logging
 
-from lib.settings import arm_len, inter_v_lim, arm_v_lim, inter_control_mode, veh_dt, coord_zone_radius, desired_cf_distance, kp, kv
+from lib.settings import arm_len, inter_v_lim, arm_v_lim, inter_control_mode, veh_dt, desired_cf_distance, kp, kv
 from map import Track
 from inter_manager import ComSystem
 
@@ -245,38 +245,54 @@ class DresnerVehicle(BaseVehicle):
 class XuVehicle(BaseVehicle):
     def __init__(self, id, veh_param, cf_param, init_v, timestep):
         super().__init__(id, veh_param, cf_param, init_v, timestep)
-        self.track.confirm_ex_lane(0) # 单出口道
-        self.enter_coord_zone = False
-        self.coordinated = False
-        self.coord_lead_veh = None
-        ComSystem.V2I(self, {'type': 'appear'})
+        self.track.confirm_ex_lane(0) # 暂时单出口道，就是 0 啦
+        self.reported = False
+
+        self.depth = None
+        self.virtual_lead_x = None
+        self.virtual_lead_v = None
+        self.neighbor_list = None
+        self.l_q_list = None
 
     def update_control(self, lead_veh):
-        if self.coordinated and self.zone == 'ap':
-            # a_1 = self.acc_with_lead_veh(lead_veh)
+        if self.depth and self.zone == 'ap':
             if lead_veh:
-                a_1 = self.acc_from_feedback(lead_veh.inst_x, lead_veh.inst_v)
+                a_1 = self.acc_with_lead_veh(lead_veh)
             else:
                 a_1 = self.max_acc
-            a_2 = self.acc_from_feedback(self.coord_lead_veh.inst_x, self.coord_lead_veh.inst_v)
+            a_2 = self.acc_from_feedback()
             self.inst_a = min(a_1, a_2)
             logging.debug("Veh %d, a_1 = %.2f, a_2 = %.2f, inst_a = %.2f" % (self._id, a_1, a_2, self.inst_a))
         else:
             super().update_control(lead_veh)
     
-    def acc_from_feedback(self, x_l, v_l):
-        return kp * (x_l - self.inst_x - desired_cf_distance) + kv * (v_l - self.inst_v)
+    def acc_from_feedback(self): 
+        '''Ch 3.4 中最后简化的结果'''
+        acc = 0
+        for j in range(len(self.l_q_list)):
+            x_bar_j_1 = (self.neighbor_list[j].inst_x - self.virtual_lead_x) - desired_cf_distance * (0 - self.neighbor_list[j].depth)
+            x_bar_j_2 = self.neighbor_list[j].inst_v - self.virtual_lead_v
+            acc_p += (-kp) * (l_q_list[j] * x_bar_j_1) + (-kv) * (l_q_list[j] * x_bar_j_2)
+        return acc
 
     def update_position(self, dt):
-        switch_group = super().update_position(dt)
-        if self.zone == 'ap' and self.inst_x >= - coord_zone_radius:
-            self.enter_coord_zone = True
-        if self.enter_coord_zone and not self.coordinated:
-            ComSystem.V2I(self, {'type': 'enter'})
-        return switch_group
+        if not self.reported:
+            ComSystem.V2I(self, {'type': 'appear'})
+            self.reported = True
+        if self.virtual_lead_x and self.zone == 'ap':
+            self.virtual_lead_x += self.virtual_lead_v * dt
+        return super().update_position(dt)
 
     def receive_I2V(self, message):
-        if message['type'] == 'request report':
+        if message['type'] == 'coordination':
+            self.depth = message['self_depth']
+            self.virtual_lead_x = message['virtual_lead_x']
+            self.virtual_lead_v = message['virtual_lead_v']
+            self.neighbor_list = message['neighbor_list']
+            self.l_q_list = message['l_q_list']
+
+    def receive_broadcast(self, message):
+        if message['type'] == 'request report' and self.inst_x < 0: # 只有在 approach zone 才会报告
             ComSystem.V2I(self, {
                 'type': 'report', 
                 'veh_id': self._id,
@@ -286,10 +302,6 @@ class XuVehicle(BaseVehicle):
                 'turn_dir': self.track.turn_dir,
                 'ex_lane': self.track.ex_lane
             })
-        elif message['type'] == 'coordination':
-            self.coordinated = True
-            self.coord_lead_veh = message['lead_veh']
-
 
 # 根据设置选择某个实现
 if inter_control_mode == 'traffic light':

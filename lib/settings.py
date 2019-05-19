@@ -5,7 +5,7 @@ disp_dt = 0.04
 ########################## 场景参数设置 ##########################
 lane_width = 3.5
 turn_radius = 6 # 美国城市街道设计指南要求一般城市道路交叉口转角半径采用3~4.5m
-arm_len = 200
+arm_len = 100
 NS_lane_count = 1
 EW_lane_count = 1
 arm_v_lim = 16.66    # 60 km/h
@@ -94,12 +94,13 @@ for key, value in veh_gen_rule_table.items():
 inter_control_mode = 'Xu' # 'traffic light', 'Dresner', 'Xu'
 
 ##########################   Xu 的仿真参数   ##########################
-coord_zone_radius = 100
-desired_cf_distance = 20
+desired_cf_distance = 25
+virtual_lead_v = 15
 kp = 0.5
 kv = 0.5
 
 conflict_movements = {
+    # 对于单车道的情况，同一进口道和出口道的都具有分流和合流冲突
     # ['Nl', 'Nt', 'Nr', 'Sl', 'St', 'Sr', 'Wl', 'Wt', 'Wr', 'El', 'Et', 'Er']
     'Nl': ['Nl', 'Nt', 'Nr', 'St', 'Sr', 'Wl', 'Wt', 'El', 'Et'],
     'Nt': ['Nl', 'Nt', 'Nr', 'Sl', 'Wl', 'Wt', 'Wr', 'El', 'Et'],

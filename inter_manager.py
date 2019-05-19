@@ -1,11 +1,12 @@
 import math
 import logging
 
-from lib.settings import inter_control_mode, lane_width, turn_radius, arm_len, NS_lane_count, EW_lane_count, veh_dt, inter_v_lim, inter_v_lim_min, min_gen_ht
+from lib.settings import inter_control_mode, lane_width, turn_radius, arm_len, NS_lane_count, EW_lane_count, veh_dt, inter_v_lim, inter_v_lim_min, min_gen_ht, conflict_movements, virtual_lead_v
 from map import Map, Track
 
 import numpy as np
 import networkx as nx
+import matplotlib.pyplot as plt
 
 class BaseInterManager:
     def __init__(self):
@@ -373,44 +374,111 @@ class DresnerResGrid:
 class XuManager(BaseInterManager):
     def __init__(self):
         super().__init__()
-        self.next_group = []
-        self.current_group_last_veh = None
-        self.current_group_info = [] # 元素是(veh, report message)
+        self.veh_info = [] # 元素是(veh, report message)
         
     def update(self):
         super().update()
         
     def receive_V2I(self, sender, message):
         if message['type'] == 'appear':
-            self.next_group.append(sender)
-        elif message['type'] == 'enter':
-            if sender in self.next_group:
-                self.coord_new_group()
+            self.update_topology()
         elif message['type'] == 'report':
-            self.current_group_info.append((sender, message))
-    
-    def coord_new_group(self):
-        for veh in self.next_group:
-            ComSystem.I2V(veh, {'type': 'request report'})
-        if len(self.current_group_info) != len(self.next_group):
-            print('Error')
-        self.current_group_info.sort(key=lambda e: -e[1]['inst_x']) # 按照 x 从大到小排序
+            self.veh_info.append((sender, message))
 
-        if not self.current_group_last_veh: # 如果刚刚开始运行
-            self.current_group_last_veh = self.current_group_info.pop(0)[0]
-        # Todo：建立图  
-        lead_veh = self.current_group_last_veh
-        for (veh, msg) in self.current_group_info:
-            ComSystem.I2V(veh, {
+    @staticmethod
+    def is_conflict(ap_arm_dir_1, ap_arm_dir_2):
+        return ap_arm_dir_1 in conflict_movements[ap_arm_dir_2]
+
+    def update_topology(self):
+        # 收集车辆位置信息
+        self.veh_info.clear()
+        ComSystem.I_broadcast({'type': 'request report'}) 
+        # 按照 x 由大到小排序
+        self.veh_info.sort(key=lambda e: -e[1]['inst_x']) 
+        # 插入虚拟头车 0
+        virtual_lead_x = self.veh_info[0][1]['inst_x'] 
+        self.veh_info.insert(0, (None, {
+            'inst_x': virtual_lead_x
+        }))
+        # 建立冲突图
+        num_node = len(self.veh_info)
+        cf_graph = nx.DiGraph()
+        cf_graph.add_node(0, ap_arm_dir = 'Xx')
+        for (i, info) in enumerate(self.veh_info):
+            if i == 0:
+                continue
+            cf_graph.add_node(i, ap_arm_dir = info[1]['ap_arm'] + info[1]['turn_dir'])
+            for j in range(1, i): # 前面的车 j
+                if XuManager.is_conflict(
+                    cf_graph.nodes[j]['ap_arm_dir'], 
+                    cf_graph.nodes[i]['ap_arm_dir']
+                ):
+                    cf_graph.add_edge(j, i)
+        for node in cf_graph.nodes:
+            if node > 0 and cf_graph.in_degree(node) == 0:
+                cf_graph.add_edge(0, node)
+        plt.subplot(131)
+        nx.draw_shell(cf_graph, with_labels=True, font_weight='bold')
+        # 生成树
+        tree = nx.DiGraph()
+        tree.add_nodes_from(cf_graph)
+        tree.nodes[0]['depth'] = 0
+        for node in tree.nodes:
+            if node == 0: 
+                continue
+            max_depth = 0
+            max_depth_pred = 0
+            for pred in cf_graph.predecessors(node):
+                if tree.nodes[pred]['depth'] > max_depth: 
+                    max_depth = tree.nodes[pred]['depth']
+                    max_depth_pred = pred
+            tree.nodes[node]['depth'] = max_depth + 1
+            tree.add_edge(max_depth_pred, node)
+        plt.subplot(132)
+        nx.draw_shell(tree, with_labels=True, font_weight='bold')
+        # 通信拓扑，这次是无向图，因为这里的通信都是双向的
+        com_graph = nx.Graph(tree)
+        nodes_same_depth = [[] for i in range(num_node)]
+        max_depth = 0
+        for node in com_graph.nodes:
+            depth = com_graph.nodes[node]['depth']
+            max_depth = max(depth, max_depth)
+            nodes_same_depth[depth].append(node)
+        nodes_same_depth = nodes_same_depth[0:max_depth+1]
+        for node_list in nodes_same_depth:
+            for i in range(len(node_list)):
+                for j in range(i + 1, len(node_list), 1):
+                    print(node_list[i], node_list[j])
+                    com_graph.add_edge(node_list[i], node_list[j])
+        plt.subplot(133)
+        nx.draw_shell(com_graph, with_labels=True, font_weight='bold')
+        plt.show()
+        # 生成几个矩阵 A Q L
+        A = nx.to_numpy_matrix(com_graph)
+        nghbor_0 = list(nx.neighbors(com_graph, 0))
+        diag = np.zeros(num_node)
+        diag[nghbor_0] = 1
+        Q = np.diag(diag)
+        L = -A
+        for i in range(num_node):
+            L[i, i] = np.sum(A[i, :]) - A[i, i]
+        L_plus_Q = L + Q
+        # 将协调结果传给车
+        for (i, info) in enumerate(self.veh_info):
+            if i == 0:
+                continue
+            neighbor_index = np.where(L_plus_Q[i, :] != 0)[0]
+            neighbor_list = [self.veh_info[n][0] for n in neighbor_index]
+            l_q_list = L_plus_Q[i, neighbor_index]
+            message = {
                 'type': 'coordination',
-                'lead_veh': lead_veh
-            })
-            logging.debug("Veh %d got its leading vehicle %d" % (veh._id, lead_veh._id))
-            lead_veh = veh # 下一辆车的前车是自己
-        self.current_group_last_veh = lead_veh
-
-        self.next_group.clear()
-        self.current_group_info.clear()
+                'self_depth': tree.nodes[i]['depth'], 
+                'virtual_lead_x': virtual_lead_x, 
+                'virtual_lead_v': virtual_lead_v, 
+                'neighbor_list': neighbor_list, 
+                'l_q_list': l_q_list
+            }
+            ComSystem.V2I(info[0], message)
 
 # 根据设置选择某个实现
 if inter_control_mode == 'traffic light':
@@ -434,7 +502,7 @@ class ComSystem:
 
     @staticmethod
     def I2V(receiver, message):
-        receiver.receive_I2V(message)
+        receiver.rexceive_I2V(message)
 
     @staticmethod
     def I_broadcast(message):
