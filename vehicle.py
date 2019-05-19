@@ -1,7 +1,7 @@
 import math
 import logging
 
-from lib.settings import arm_len, inter_v_lim, arm_v_lim, inter_control_mode, veh_dt
+from lib.settings import arm_len, inter_v_lim, arm_v_lim, inter_control_mode, veh_dt, coord_zone_radius, desired_cf_distance, kp, kv
 from map import Track
 from inter_manager import ComSystem
 
@@ -232,10 +232,6 @@ class DresnerVehicle(BaseVehicle):
             })
         return switch_group
 
-    def receive_broadcast(self, message):
-        '''暂时不听'''
-        pass
-
     def receive_I2V(self, message):
         if message['type'] == 'acknowledge':
             if message['res_id'] != self.reservation['res_id']:
@@ -246,11 +242,62 @@ class DresnerVehicle(BaseVehicle):
         elif message['type'] == 'reject':
             self.timeout = message['timeout']
 
+class XuVehicle(BaseVehicle):
+    def __init__(self, id, veh_param, cf_param, init_v, timestep):
+        super().__init__(id, veh_param, cf_param, init_v, timestep)
+        self.track.confirm_ex_lane(0) # 单出口道
+        self.enter_coord_zone = False
+        self.coordinated = False
+        self.coord_lead_veh = None
+        ComSystem.V2I(self, {'type': 'appear'})
+
+    def update_control(self, lead_veh):
+        if self.coordinated and self.zone == 'ap':
+            # a_1 = self.acc_with_lead_veh(lead_veh)
+            if lead_veh:
+                a_1 = self.acc_from_feedback(lead_veh.inst_x, lead_veh.inst_v)
+            else:
+                a_1 = self.max_acc
+            a_2 = self.acc_from_feedback(self.coord_lead_veh.inst_x, self.coord_lead_veh.inst_v)
+            self.inst_a = min(a_1, a_2)
+            logging.debug("Veh %d, a_1 = %.2f, a_2 = %.2f, inst_a = %.2f" % (self._id, a_1, a_2, self.inst_a))
+        else:
+            super().update_control(lead_veh)
+    
+    def acc_from_feedback(self, x_l, v_l):
+        return kp * (x_l - self.inst_x - desired_cf_distance) + kv * (v_l - self.inst_v)
+
+    def update_position(self, dt):
+        switch_group = super().update_position(dt)
+        if self.zone == 'ap' and self.inst_x >= - coord_zone_radius:
+            self.enter_coord_zone = True
+        if self.enter_coord_zone and not self.coordinated:
+            ComSystem.V2I(self, {'type': 'enter'})
+        return switch_group
+
+    def receive_I2V(self, message):
+        if message['type'] == 'request report':
+            ComSystem.V2I(self, {
+                'type': 'report', 
+                'veh_id': self._id,
+                'inst_x': self.inst_x, 
+                'ap_arm': self.track.ap_arm,
+                'ap_lane': self.track.ap_lane, 
+                'turn_dir': self.track.turn_dir,
+                'ex_lane': self.track.ex_lane
+            })
+        elif message['type'] == 'coordination':
+            self.coordinated = True
+            self.coord_lead_veh = message['lead_veh']
+
+
 # 根据设置选择某个实现
 if inter_control_mode == 'traffic light':
     Vehicle = HumanDrivenVehicle
 elif inter_control_mode == 'Dresner':
     Vehicle = DresnerVehicle
+elif inter_control_mode == 'Xu':
+    Vehicle = XuVehicle
 
 class CFModel:
     '''Car-following model, here we use IDM model'''

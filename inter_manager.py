@@ -5,6 +5,7 @@ from lib.settings import inter_control_mode, lane_width, turn_radius, arm_len, N
 from map import Map, Track
 
 import numpy as np
+import networkx as nx
 
 class BaseInterManager:
     def __init__(self):
@@ -17,7 +18,6 @@ class BaseInterManager:
 class TrafficLightManager(BaseInterManager):
     def __init__(self):
         super().__init__()
-        self.timestep = 0
         self.current_phase = 0
         self.current_elapsed_time = 0
         self.phase = [
@@ -370,11 +370,55 @@ class DresnerResGrid:
                 if record[2] < timestep:
                     value.remove(record) # 删掉出口道里时间已过的信息
 
+class XuManager(BaseInterManager):
+    def __init__(self):
+        super().__init__()
+        self.next_group = []
+        self.current_group_last_veh = None
+        self.current_group_info = [] # 元素是(veh, report message)
+        
+    def update(self):
+        super().update()
+        
+    def receive_V2I(self, sender, message):
+        if message['type'] == 'appear':
+            self.next_group.append(sender)
+        elif message['type'] == 'enter':
+            if sender in self.next_group:
+                self.coord_new_group()
+        elif message['type'] == 'report':
+            self.current_group_info.append((sender, message))
+    
+    def coord_new_group(self):
+        for veh in self.next_group:
+            ComSystem.I2V(veh, {'type': 'request report'})
+        if len(self.current_group_info) != len(self.next_group):
+            print('Error')
+        self.current_group_info.sort(key=lambda e: -e[1]['inst_x']) # 按照 x 从大到小排序
+
+        if not self.current_group_last_veh: # 如果刚刚开始运行
+            self.current_group_last_veh = self.current_group_info.pop(0)[0]
+        # Todo：建立图  
+        lead_veh = self.current_group_last_veh
+        for (veh, msg) in self.current_group_info:
+            ComSystem.I2V(veh, {
+                'type': 'coordination',
+                'lead_veh': lead_veh
+            })
+            logging.debug("Veh %d got its leading vehicle %d" % (veh._id, lead_veh._id))
+            lead_veh = veh # 下一辆车的前车是自己
+        self.current_group_last_veh = lead_veh
+
+        self.next_group.clear()
+        self.current_group_info.clear()
+
 # 根据设置选择某个实现
 if inter_control_mode == 'traffic light':
     inter_manager = TrafficLightManager()
 elif inter_control_mode == 'Dresner':
     inter_manager = DresnerManager()
+elif inter_control_mode == 'Xu':
+    inter_manager = XuManager()
 
 # 这不是上策，但是先这样吧
 import simulator
