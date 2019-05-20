@@ -245,26 +245,28 @@ class DresnerVehicle(BaseVehicle):
 class XuVehicle(BaseVehicle):
     def __init__(self, id, veh_param, cf_param, init_v, timestep):
         super().__init__(id, veh_param, cf_param, init_v, timestep)
-        self.track.confirm_ex_lane(0) # 暂时单出口道，就是 0 啦
         self.reported = False
-
         self.depth = None
         self.virtual_lead_x = None
         self.virtual_lead_v = None
         self.neighbor_list = None
         self.l_q_list = None
 
+        # 一条车道的情况
+        self.track.confirm_ex_lane(0) # 暂时单出口道，就是 0 啦
+
     def update_control(self, lead_veh):
         if self.depth and self.zone == 'ap':
-            # if lead_veh:
-            #     a_1 = self.acc_with_lead_veh(lead_veh)
-            # else:
-            #     a_1 = self.max_acc
-            # a_2 = self.acc_from_feedback()
-            # self.inst_a = min(a_1, a_2)
-            # logging.debug("Veh %d, a_1 = %.2f, a_2 = %.2f, inst_a = %.2f" % (self._id, a_1, a_2, self.inst_a))
-            self.inst_a = self.acc_from_feedback()
-            logging.debug("Veh %d, inst_a = %.2f" % (self._id, self.inst_a))
+            if lead_veh:
+                a_1 = self.acc_with_lead_veh(lead_veh)
+            else:
+                a_1 = self.max_acc
+            a_2 = self.acc_from_feedback()
+            self.inst_a = min(a_1, a_2)
+            self.inst_a = min(max(self.inst_a, - self.max_dec), self.max_acc)
+            logging.debug("Veh %d, a_1 = %.2f, a_2 = %.2f, inst_a = %.2f" % (self._id, a_1, a_2, self.inst_a))
+            # self.inst_a = self.acc_from_feedback()
+            # logging.debug("Veh %d, inst_a = %.2f" % (self._id, self.inst_a))
         else:
             super().update_control(lead_veh)
     
