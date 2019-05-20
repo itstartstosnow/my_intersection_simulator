@@ -9,9 +9,7 @@ arm_len = 100
 NS_lane_count = 1
 EW_lane_count = 1
 arm_v_lim = 16.66    # 60 km/h
-inter_v_lim = 11.11  # 交叉口区域的限速
-inter_v_lim_min = 4  # Dresner 方案中通过交叉口的最慢速度
-
+inter_v_lim = 11.11  # 交叉口区域的限速，Human/Dresner/Xu都会用到
 ########################## 车辆参数设置 ##########################
 veh_param = {
     'veh_wid': 2,
@@ -93,9 +91,12 @@ for key, value in veh_gen_rule_table.items():
 ########################## 交叉口控制方案设置 ##########################
 inter_control_mode = 'Xu' # 'traffic light', 'Dresner', 'Xu'
 
+########################## Dresner 的仿真参数  ##########################
+inter_v_lim_min = 4  # Dresner 方案中通过交叉口的最慢速度
+
 ##########################   Xu 的仿真参数   ##########################
-desired_cf_distance = 25
-virtual_lead_v = 15
+desired_cf_distance = 25 # 左转弯曲线长度 17.68
+virtual_lead_v = inter_v_lim
 kp = 0.5
 kv = 0.5
 

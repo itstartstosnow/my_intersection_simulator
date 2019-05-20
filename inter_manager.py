@@ -1,7 +1,7 @@
 import math
 import logging
 
-from lib.settings import inter_control_mode, lane_width, turn_radius, arm_len, NS_lane_count, EW_lane_count, veh_dt, inter_v_lim, inter_v_lim_min, min_gen_ht, conflict_movements, virtual_lead_v
+from lib.settings import inter_control_mode, lane_width, turn_radius, arm_len, NS_lane_count, EW_lane_count, veh_dt, inter_v_lim, inter_v_lim_min, min_gen_ht, conflict_movements, virtual_lead_v, desired_cf_distance
 from map import Map, Track
 
 import numpy as np
@@ -396,7 +396,7 @@ class XuManager(BaseInterManager):
         # 按照 x 由大到小排序
         self.veh_info.sort(key=lambda e: -e[1]['inst_x']) 
         # 插入虚拟头车 0
-        virtual_lead_x = self.veh_info[0][1]['inst_x'] 
+        virtual_lead_x = self.veh_info[0][1]['inst_x'] + desired_cf_distance
         self.veh_info.insert(0, (None, {
             'inst_x': virtual_lead_x
         }))
@@ -417,8 +417,8 @@ class XuManager(BaseInterManager):
         for node in cf_graph.nodes:
             if node > 0 and cf_graph.in_degree(node) == 0:
                 cf_graph.add_edge(0, node)
-        plt.subplot(131)
-        nx.draw_shell(cf_graph, with_labels=True, font_weight='bold')
+        # plt.subplot(131)
+        # nx.draw_shell(cf_graph, with_labels=True, font_weight='bold')
         # 生成树
         tree = nx.DiGraph()
         tree.add_nodes_from(cf_graph)
@@ -434,8 +434,8 @@ class XuManager(BaseInterManager):
                     max_depth_pred = pred
             tree.nodes[node]['depth'] = max_depth + 1
             tree.add_edge(max_depth_pred, node)
-        plt.subplot(132)
-        nx.draw_shell(tree, with_labels=True, font_weight='bold')
+        # plt.subplot(132)
+        # nx.draw_shell(tree, with_labels=True, font_weight='bold')
         # 通信拓扑，这次是无向图，因为这里的通信都是双向的
         com_graph = nx.Graph(tree)
         nodes_same_depth = [[] for i in range(num_node)]
@@ -448,28 +448,32 @@ class XuManager(BaseInterManager):
         for node_list in nodes_same_depth:
             for i in range(len(node_list)):
                 for j in range(i + 1, len(node_list), 1):
-                    print(node_list[i], node_list[j])
                     com_graph.add_edge(node_list[i], node_list[j])
-        plt.subplot(133)
-        nx.draw_shell(com_graph, with_labels=True, font_weight='bold')
-        plt.show()
+        # plt.subplot(133)
+        # nx.draw_shell(com_graph, with_labels=True, font_weight='bold')
+        # plt.show()
         # 生成几个矩阵 A Q L
         A = nx.to_numpy_matrix(com_graph)
+        A = np.asarray(A[1:, 1:]) # 这几个矩阵都是 [1, N]，不含 0
         nghbor_0 = list(nx.neighbors(com_graph, 0))
         diag = np.zeros(num_node)
         diag[nghbor_0] = 1
+        diag = diag[1: ]
         Q = np.diag(diag)
         L = -A
-        for i in range(num_node):
+        for i in range(num_node-1):
             L[i, i] = np.sum(A[i, :]) - A[i, i]
         L_plus_Q = L + Q
+        # print('L+Q=%s' % str(L_plus_Q))
         # 将协调结果传给车
         for (i, info) in enumerate(self.veh_info):
             if i == 0:
                 continue
-            neighbor_index = np.where(L_plus_Q[i, :] != 0)[0]
-            neighbor_list = [self.veh_info[n][0] for n in neighbor_index]
-            l_q_list = L_plus_Q[i, neighbor_index]
+            neighbor_index = np.where(L_plus_Q[i-1, :] != 0)[0] # i 是 node 编号，在这几个矩阵里 index 要小 1 
+            # print('%d, neightbor_index=%s' % (i, str(neighbor_index)))
+            neighbor_list = [self.veh_info[int(n+1)][0] for n in neighbor_index]
+            l_q_list = L_plus_Q[i-1, neighbor_index]
+            # print('L+Q=%s' % str(l_q_list))
             message = {
                 'type': 'coordination',
                 'self_depth': tree.nodes[i]['depth'], 
@@ -478,7 +482,7 @@ class XuManager(BaseInterManager):
                 'neighbor_list': neighbor_list, 
                 'l_q_list': l_q_list
             }
-            ComSystem.V2I(info[0], message)
+            ComSystem.I2V(info[0], message)
 
 # 根据设置选择某个实现
 if inter_control_mode == 'traffic light':
@@ -502,7 +506,7 @@ class ComSystem:
 
     @staticmethod
     def I2V(receiver, message):
-        receiver.rexceive_I2V(message)
+        receiver.receive_I2V(message)
 
     @staticmethod
     def I_broadcast(message):

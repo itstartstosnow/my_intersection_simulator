@@ -256,13 +256,15 @@ class XuVehicle(BaseVehicle):
 
     def update_control(self, lead_veh):
         if self.depth and self.zone == 'ap':
-            if lead_veh:
-                a_1 = self.acc_with_lead_veh(lead_veh)
-            else:
-                a_1 = self.max_acc
-            a_2 = self.acc_from_feedback()
-            self.inst_a = min(a_1, a_2)
-            logging.debug("Veh %d, a_1 = %.2f, a_2 = %.2f, inst_a = %.2f" % (self._id, a_1, a_2, self.inst_a))
+            # if lead_veh:
+            #     a_1 = self.acc_with_lead_veh(lead_veh)
+            # else:
+            #     a_1 = self.max_acc
+            # a_2 = self.acc_from_feedback()
+            # self.inst_a = min(a_1, a_2)
+            # logging.debug("Veh %d, a_1 = %.2f, a_2 = %.2f, inst_a = %.2f" % (self._id, a_1, a_2, self.inst_a))
+            self.inst_a = self.acc_from_feedback()
+            logging.debug("Veh %d, inst_a = %.2f" % (self._id, self.inst_a))
         else:
             super().update_control(lead_veh)
     
@@ -272,7 +274,7 @@ class XuVehicle(BaseVehicle):
         for j in range(len(self.l_q_list)):
             x_bar_j_1 = (self.neighbor_list[j].inst_x - self.virtual_lead_x) - desired_cf_distance * (0 - self.neighbor_list[j].depth)
             x_bar_j_2 = self.neighbor_list[j].inst_v - self.virtual_lead_v
-            acc_p += (-kp) * (l_q_list[j] * x_bar_j_1) + (-kv) * (l_q_list[j] * x_bar_j_2)
+            acc += (-kp) * (self.l_q_list[j] * x_bar_j_1) + (-kv) * (self.l_q_list[j] * x_bar_j_2)
         return acc
 
     def update_position(self, dt):
