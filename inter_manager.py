@@ -376,9 +376,6 @@ class XuManager(BaseInterManager):
         super().__init__()
         self.veh_info = [] # 元素是(veh, report message)
         
-    def update(self):
-        super().update()
-        
     def receive_V2I(self, sender, message):
         if message['type'] == 'appear':
             self.update_topology()

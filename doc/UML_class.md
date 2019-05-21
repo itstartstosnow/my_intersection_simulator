@@ -36,6 +36,22 @@
 + receive_I2V(message)
 ```
 
+# XuVehicle
+```
++ reported: bool
++ depth: int
++ virtual_lead_x: float
++ virtual_lead_v: float
++ neighbor_list: list
++ l_q_list: list
+
++ update_control(lead_veh)
++ acc_from_feedback(): float
++ update_position(dt): bool
++ receive_I2V(message)
++ receive_broadcast(message)
+```
+
 # BaseManager
 ```
 + BaseInterManagerupdate()
@@ -55,6 +71,15 @@
 + gen_veh_dots(veh_wid, veh_len, veh_len_front, static_buf, time_buf)
 + check_request(message)
 + check_cells_stepwise(message, ju_track, ju_shape_end_x, ex_arm, ex_lane, acc)
+```
+
+# XuManager
+```
++ veh_info: list
+
++ receive_V2I(sender, message)
++ is_conflict(ap_arm_dir_1, ap_arm_dir_2): bool
++ update_topology()
 ```
 
 # DresnerResGrid 组合关系
