@@ -77,7 +77,7 @@ class BaseVehicle:
             self.inst_lane = self.track.ex_lane
             return True
         
-        logging.debug("%d, %d, %s, %d, %.2f, %.2f" % (self.timestep, self._id, self.zone, self.inst_lane, self.inst_x, self.inst_v))
+        logging.debug("%d, %d, %s, %d, %.2f, %.2f, %.2f" % (self.timestep, self._id, self.zone, self.inst_lane, self.inst_x, self.inst_v, self.inst_a))
         return False
 
     def receive_broadcast(self, message):
@@ -252,16 +252,16 @@ class XuVehicle(BaseVehicle):
         self.neighbor_list = None
         self.l_q_list = None
 
-        # # 一条车道的情况
-        # self.track.confirm_ex_lane(0) # 暂时单出口道，就是 0 啦
+        # 一条车道的情况
+        self.track.confirm_ex_lane(0) # 暂时单出口道，就是 0 啦
 
-        # 3 条车道的情况
-        if veh_param['turn_dir'] == 'l':
-            self.track.confirm_ex_lane(0)
-        elif veh_param['turn_dir'] == 't':
-            self.track.confirm_ex_lane(1)
-        else:
-            self.track.confirm_ex_lane(2)
+        # # 3 条车道的情况
+        # if veh_param['turn_dir'] == 'l':
+        #     self.track.confirm_ex_lane(0)
+        # elif veh_param['turn_dir'] == 't':
+        #     self.track.confirm_ex_lane(1)
+        # else:
+        #     self.track.confirm_ex_lane(2)
 
     def update_control(self, lead_veh):
         if self.depth and self.zone == 'ap':
@@ -272,8 +272,9 @@ class XuVehicle(BaseVehicle):
             a_2 = self.acc_from_feedback()
             self.inst_a = min(a_1, a_2)
             self.inst_a = min(max(self.inst_a, - self.max_dec), self.max_acc)
-            logging.debug("Veh %d, a_1 = %.2f, a_2 = %.2f, inst_a = %.2f" % (self._id, a_1, a_2, self.inst_a))
+            # logging.debug("Veh %d, a_1 = %.2f, a_2 = %.2f, inst_a = %.2f" % (self._id, a_1, a_2, self.inst_a))
             # self.inst_a = self.acc_from_feedback()
+            # self.inst_a = min(max(self.inst_a, - self.max_dec), self.max_acc)
             # logging.debug("Veh %d, inst_a = %.2f" % (self._id, self.inst_a))
         else:
             super().update_control(lead_veh)
@@ -306,9 +307,9 @@ class XuVehicle(BaseVehicle):
     def receive_broadcast(self, message):
         if message['type'] == 'request report':
             # 单车道，在 approach zone 才会报告
-            # if self.inst_x < 0: 
-            # 三车道，右转不报告
-            if self.inst_x < 0 and self.track.turn_dir in 'lt':
+            if self.inst_x < 0: 
+            # # 三车道，右转不报告
+            # if self.inst_x < 0 and self.track.turn_dir in 'lt':
                 ComSystem.V2I(self, {
                     'type': 'report', 
                     'veh_id': self._id,

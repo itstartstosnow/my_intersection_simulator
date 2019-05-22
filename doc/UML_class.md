@@ -1,3 +1,65 @@
+# MyMainWindow(QMainWindow)
+```
++ icons: dict
++ main_widget: QWidget
++ canvas: MyPaintCanvas
+
++ setup_menubar()
++ setup_toolbar()
++ setup_statusbar()
++ play_triggered()
++ fileQuit()
++ closeEvent()
++ about()
+```
+
+# MyPaintCanvas(QWidget)
+```
++ mainw: MyMainWindow
++ disp_timer: QTimer
++ veh_timer: QTimer
++ draw_road_shape: dict
++ draw_traj_shape: dict
+
++ gen_draw_road(): dict
++ gen_draw_traj(ju_track_table): dict
++ update_traffic()
++ paintEvent(event)
++ draw_road(qp)
++ draw_vehs(qp)
+```
+
+# Map
+```
++ lw: float
++ tr: float
++ al: float
++ NSl: int
++ EWl: int
++ ju_track_table: dict
++ ex_arm_table: dict
+
++ get_ex_arm(ap_arm, turn_dir): string
++ get_ju_track(ap_arm, turn_dir, ap_lane, ex_lane): list
++ gen_ju_track_table()
++ gen_ju_track(xa, ya, xb, yb, ap_arm, dir): list
+```
+
+# Track
+```
++ ap_arm: string
++ ap_lane: int
++ turn_dir: string
++ ju_track: list
++ ex_arm: string
++ ex_lane: int
++ is_complete: bool
++ ju_shape_end_x: list
+
++ confirm_ex_lane(ex_lane)
++ cal_ju_shape_end_x(ju_track)
+```
+
 # BaseVehicle
 ```
 + _id: int
@@ -21,6 +83,18 @@
 + acc_with_lead_veh(lead_veh): float
 + update_control(lead_veh)
 + update_position(dt): bool
+```
+
+# CFModel
+```
++ v0: float
++ T: float
++ s0: float
++ a: float
++ b: float
++ delta: float
+
++ acc_from_model(v, s, v_l): float
 ```
 
 # DresnerVehicle
@@ -52,9 +126,29 @@
 + receive_broadcast(message)
 ```
 
+# Simulator
+```
++ timestep: int
++ gen_veh_count: int
++ point_queue_table: dict
++ all_veh: dict
+
++ update()
++ all_update_position(): list
++ update_group(to_switch_group)
++ remove_out_veh()
++ init_point_queue_table()
++ gen_new_veh()
++ make_veh(ap_arm, ap_lane, turn_dir)
++ update_all_control()
+```
+
+
 # BaseManager
 ```
-+ BaseInterManagerupdate()
++ timestep: int
+
++ update()
 + receive_V2I(sender, message)
 ```
  
@@ -104,3 +198,4 @@
 + add_time_dimension()
 + dispose_passed_time(timestep)
 ```
+
