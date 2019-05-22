@@ -1,13 +1,14 @@
 ########################## 全局步长设置 ##########################
 veh_dt = 0.1
 disp_dt = 0.04
+simu_t = 180 # simulation time = 3min
 
 ########################## 场景参数设置 ##########################
 lane_width = 3.5
 turn_radius = 6 # 美国城市街道设计指南要求一般城市道路交叉口转角半径采用3~4.5m
 arm_len = 200
-NS_lane_count = 3
-EW_lane_count = 3
+NS_lane_count = 1
+EW_lane_count = 1
 arm_v_lim = 16.66    # 60 km/h
 inter_v_lim = 11.11  # 交叉口区域的限速，Human/Dresner/Xu都会用到
 ########################## 车辆参数设置 ##########################
@@ -63,18 +64,18 @@ veh_gen_rule_table = {
     # 'Wr': [0    , 0    , 0    ],
 
     # 单车道的情况
-    'Nl': [300], 
-    'Nt': [600], 
-    'Nr': [300], 
-    'Sl': [300], 
-    'St': [600], 
-    'Sr': [300], 
-    'El': [300], 
-    'Et': [600], 
-    'Er': [300], 
-    'Wl': [300], 
-    'Wt': [600], 
-    'Wr': [300]
+    'Nl': [45], 
+    'Nt': [90], 
+    'Nr': [45], 
+    'Sl': [45], 
+    'St': [90], 
+    'Sr': [45], 
+    'El': [45], 
+    'Et': [90], 
+    'Er': [45], 
+    'Wl': [45], 
+    'Wt': [90], 
+    'Wr': [45]
 }
 # 车辆生成时的初始位置
 gen_init_x = - arm_len
@@ -95,7 +96,7 @@ inter_control_mode = 'Xu' # 'traffic light', 'Dresner', 'Xu'
 inter_v_lim_min = 4  # Dresner 方案中通过交叉口的最慢速度
 
 ##########################   Xu 的仿真参数   ##########################
-desired_cf_distance = 39 # 单车道取25
+desired_cf_distance = 25 # 单车道取25
 virtual_lead_v = inter_v_lim
 kp = 0.15
 kv = 0.7

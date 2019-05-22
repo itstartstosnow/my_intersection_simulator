@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 def cal_delay(fname):
     file = open(fname)
     reader = csv.reader(file)
+    
     # 列分别是 start_time, ju_track_len, removed_time, is_removed
     veh_info_table = - np.ones((500, 4))
     for i, row in enumerate(reader):
@@ -31,15 +32,13 @@ def cal_delay(fname):
 
     # 实际时间
     actual_time = (veh_info_table[:, 2] - veh_info_table[:, 0]) * veh_dt
-    # 理想通行时间，由匀速-减速-匀速-加速-匀速组成
-    ideal_time = (arm_len - (cf_param['v0']**2 - inter_v_lim**2) / 2 / veh_param['max_dec']) / cf_param['v0'] + \
-        (cf_param['v0'] - inter_v_lim) / veh_param['max_dec'] + \
-        veh_info_table[:, 1] / inter_v_lim + \
-        (cf_param['v0'] - inter_v_lim) / veh_param['max_acc'] + \
-        (arm_len - (cf_param['v0']**2 - inter_v_lim**2) / 2 / veh_param['max_acc']) / cf_param['v0']
+    # 理想通行时间，无视交叉口和其它车辆，匀速通过
+    ideal_time = arm_len * 2 + veh_info_table[:, 1]
     delay = actual_time - ideal_time
+
     print('avg_delay = %.2f' % np.mean(delay))
     print('max_delay = %.2f' % np.max(delay))
+
     plt.plot(delay)
     plt.show()
 

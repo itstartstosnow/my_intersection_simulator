@@ -301,7 +301,7 @@ class DresnerManager(BaseInterManager):
                 return False
 
         self.res_grid.ex_lane_record[ex_arm + str(ex_lane)].append([message['veh_id'], occ_start, occ_end])
-        logging.debug(str(self.res_grid.ex_lane_record[ex_arm + str(ex_lane)]))
+        # logging.debug(str(self.res_grid.ex_lane_record[ex_arm + str(ex_lane)]))
         return True
     
 class DresnerResGrid:

@@ -125,7 +125,7 @@ class HumanDrivenVehicle(BaseVehicle):
     def receive_broadcast(self, message):
         if self.zone == 'ap':
             self.traffic_light = message[self.track.ap_arm + self.track.turn_dir]
-            logging.debug('self.traffic_light =' + str(self.traffic_light))
+            # logging.debug('self.traffic_light =' + str(self.traffic_light))
 
     def receive_I2V(self, message):
         '''不听不听王八念经'''

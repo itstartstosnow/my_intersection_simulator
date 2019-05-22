@@ -4,7 +4,7 @@ import math
 from map import Map
 from simulator import Simulator
 from inter_manager import inter_manager
-from lib.settings import lane_width, turn_radius, arm_len, NS_lane_count, EW_lane_count, veh_dt, disp_dt
+from lib.settings import lane_width, turn_radius, arm_len, NS_lane_count, EW_lane_count, veh_dt, disp_dt, simu_t
 
 from PyQt5.QtCore import Qt, QTimer, QPointF, QRectF, QLineF
 from PyQt5.QtGui import QPainter, QColor, QPen, QFont
@@ -64,8 +64,11 @@ class MyPaintCanvas(QWidget):
         # self.draw_traj(qp) # 显示轨迹，调试用
         self.draw_vehs(qp)
 
-        self.mainw.step_lbl.setText("Timestep: %4d" % Simulator.getInstance().timestep)
-        self.mainw.time_lbl.setText("Elapsed time: %.1f s" % (Simulator.getInstance().timestep * veh_dt))
+        ts = Simulator.getInstance().timestep
+        self.mainw.step_lbl.setText("Timestep: %4d" % ts)
+        self.mainw.time_lbl.setText("Elapsed time: %.1f s" % (ts * veh_dt))
+        if ts == int(simu_t/veh_dt):
+            self.mainw.play_triggered()
     
     def gen_draw_road(self):
         '''

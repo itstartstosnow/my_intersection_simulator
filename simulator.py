@@ -113,7 +113,7 @@ class Simulator:
                 if len(queue) > 0: 
                     new_veh = self.make_veh(ap_arm, lane, queue.pop())
                     self.all_veh[ap_arm + 'ap'].insert(0, new_veh)
-                    logging.debug('point_queue_table[%s] = %s' % (ap_arm_lane, str(queue)))
+                    # logging.debug('point_queue_table[%s] = %s' % (ap_arm_lane, str(queue)))
                     
     def make_veh(self, ap_arm, ap_lane, turn_dir):
         '''创建一个车辆对象并返回'''
