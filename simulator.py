@@ -2,6 +2,7 @@ import copy
 import logging
 
 from vehicle import Vehicle
+from inter_manager import inter_manager
 from lib.settings import arm_len, veh_dt, veh_param, cf_param, NS_lane_count, EW_lane_count, veh_gen_rule_table, min_gen_hs, gen_init_v, gen_init_x
 
 import numpy as np
@@ -42,11 +43,18 @@ class Simulator:
 
     def update(self):
         self.timestep += 1
+        # print('Timestep: %d' % self.timestep)
         to_switch_group = self.all_update_position()
+        # print('all_update_position')
         self.update_group(to_switch_group)
+        # print('update_group(to_switch_group)')
         self.gen_new_veh()
+        # print('gen_new_veh')
         self.remove_out_veh()
+        # print('remove_out_veh')
         self.update_all_control()
+        # print('update_all_control')
+        inter_manager.update()
 
     def all_update_position(self):
         '''对于在 all_veh 中的车辆，更新位置，顺便记录分组有变化的车辆'''

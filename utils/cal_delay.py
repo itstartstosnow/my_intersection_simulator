@@ -1,7 +1,7 @@
 import csv
 import sys
 sys.path.append("../") # cd 到 utils 文件夹外面再执行
-from lib.settings import veh_param, cf_param, inter_v_lim, arm_len, veh_dt
+from lib.settings import veh_param, cf_param, inter_v_lim, arm_len, veh_dt, simu_t
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 def cal_delay(fname):
     file = open(fname)
     reader = csv.reader(file)
-    
+
     # 列分别是 start_time, ju_track_len, removed_time, is_removed
     veh_info_table = - np.ones((500, 4))
     for i, row in enumerate(reader):
@@ -26,20 +26,30 @@ def cal_delay(fname):
             if x >= arm_len + (veh_param['veh_len'] - veh_param['veh_len_front']):
                 veh_info_table[veh_id, 3] = 1
 
+    # 找到最小的没有完成全程的车辆
     veh_not_finish_min = np.where(veh_info_table[:, 3] < 0)[0][0] # 最小的没有完成全程的车辆
     print('veh_not_finish_min = %d' % veh_not_finish_min)
     veh_info_table = veh_info_table[0: veh_not_finish_min, :]
 
+    # 计算实际通行能力（从第一辆车离开到最后一辆车离开交叉口时间内的流量）
+    veh_finish_count = np.sum(veh_info_table[:, 3]) # 完成全程的车辆数
+    earlist_finish_time = np.min(veh_info_table[:, 2]) # 最早完成全程的时间
+    actual_total_flow = veh_finish_count / (simu_t - earlist_finish_time * veh_dt) * 3600
+    print('actual_total_flow = %d' % actual_total_flow)
+
+    # 计算延误
     # 实际时间
     actual_time = (veh_info_table[:, 2] - veh_info_table[:, 0]) * veh_dt
     # 理想通行时间，无视交叉口和其它车辆，匀速通过
-    ideal_time = arm_len * 2 + veh_info_table[:, 1]
+    ideal_time = (arm_len * 2 + veh_info_table[:, 1]) / cf_param['v0']
     delay = actual_time - ideal_time
-
     print('avg_delay = %.2f' % np.mean(delay))
     print('max_delay = %.2f' % np.max(delay))
 
     plt.plot(delay)
+    plt.xlabel('Vehicle Id')
+    plt.ylabel('Delay / s')
+    plt.grid(True)
     plt.show()
 
 def see_veh_avx(fname, id):
@@ -86,7 +96,11 @@ def see_veh_avx(fname, id):
     plt.show()
 
 if __name__ == '__main__':
-    fname = '../log/log 2019-05-16 11-18-41.log'
+    fname_seg = sys.argv[1: ]
+    fname = '../log/'
+    for e in fname_seg:
+        fname = fname + e + ' '
+    fname = fname[:-1] + '.log'
     cal_delay(fname)
     # see_veh_avx(fname, 70)
 

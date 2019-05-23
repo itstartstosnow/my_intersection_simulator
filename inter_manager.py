@@ -1,7 +1,7 @@
 import math
 import logging
 
-from lib.settings import inter_control_mode, lane_width, turn_radius, arm_len, NS_lane_count, EW_lane_count, veh_dt, inter_v_lim, inter_v_lim_min, min_gen_ht, conflict_movements, virtual_lead_v, desired_cf_distance
+from lib.settings import inter_control_mode, lane_width, turn_radius, arm_len, NS_lane_count, EW_lane_count, veh_dt, inter_v_lim, inter_v_lim_min, min_gen_ht, conflict_movements, virtual_lead_v, desired_cf_distance, phase, yellow_time
 from map import Map, Track
 
 import numpy as np
@@ -21,12 +21,7 @@ class TrafficLightManager(BaseInterManager):
         super().__init__()
         self.current_phase = 0
         self.current_elapsed_time = 0
-        self.phase = [
-            [150, 'Nl', 'Sl', 'Nr', 'Sr'],
-            [220, 'Nt', 'St', 'Nr', 'Sr'],
-            [150, 'El', 'Wl', 'Nr', 'Sr'],
-            [220, 'Et', 'Wt', 'Nr', 'Sr']
-        ]
+        self.phase = phase
 
     def update(self):
         super().update()
@@ -39,7 +34,7 @@ class TrafficLightManager(BaseInterManager):
             # 这个相位结束了，换下一个相位
             self.current_elapsed_time = 0
             self.current_phase = (self.current_phase + 1) % len(self.phase)
-        if self.current_elapsed_time >= self.phase[self.current_phase][0] - 30:
+        if self.current_elapsed_time >= self.phase[self.current_phase][0] - (yellow_time / veh_dt):
             # 到黄灯时间了
             for ap_arm_dir in ['Nl', 'Nt', 'Nr', 'Sl', 'St', 'Sr', 'El', 'Et', 'Er', 'Wl', 'Wt', 'Wr']:
                 if ap_arm_dir in self.phase[self.current_phase]:
@@ -47,6 +42,7 @@ class TrafficLightManager(BaseInterManager):
                 else: 
                     message[ap_arm_dir] = 'R'
             ComSystem.I_broadcast(message)
+            print('Yellow light = [%s]' % str(self.phase[self.current_phase][1:]))
         else:
             for ap_arm_dir in ['Nl', 'Nt', 'Nr', 'Sl', 'St', 'Sr', 'El', 'Et', 'Er', 'Wl', 'Wt', 'Wr']:
                 if ap_arm_dir in self.phase[self.current_phase]:
@@ -54,6 +50,7 @@ class TrafficLightManager(BaseInterManager):
                 else: 
                     message[ap_arm_dir] = 'R'
             ComSystem.I_broadcast(message)
+            print('Green light = [%s]' % str(self.phase[self.current_phase][1:]))
         
     def receive_V2I(self, sender, message):
         return 
@@ -272,7 +269,7 @@ class DresnerManager(BaseInterManager):
             # 利用grid.xy_to_ij转化为车辆此时占有的cell
             i, j = self.res_grid.xy_to_ij(veh_dots_x_rt, veh_dots_y_rt)
             t_slice = np.ones(i.shape, dtype=np.int16) * (round(t-self.res_grid.t_start))
-            if t_slice[0] >= self.res_grid.cells.shape[2]:
+            while t_slice[0] >= self.res_grid.cells.shape[2]:
                 self.res_grid.add_time_dimension()
             
             # 检查占用的格点是否都空
@@ -363,7 +360,7 @@ class DresnerResGrid:
     
     def dispose_passed_time(self, timestep):
         '''把过去时间的信息都清除掉（反正也穿越不回去了）'''
-        if timestep - self.t_start > 20:
+        if timestep - self.t_start > 20 and self.cells.shape[2] > (timestep - self.t_start) + 1: # 如果没有后一条件，有时候cells第三维空了，会死循环
             self.cells = self.cells[:, :, (timestep - self.t_start):]
             self.t_start = timestep
         for key, value in self.ex_lane_record.items():

@@ -3,7 +3,6 @@ import math
 
 from map import Map
 from simulator import Simulator
-from inter_manager import inter_manager
 from lib.settings import lane_width, turn_radius, arm_len, NS_lane_count, EW_lane_count, veh_dt, disp_dt, simu_t
 
 from PyQt5.QtCore import Qt, QTimer, QPointF, QRectF, QLineF
@@ -39,7 +38,6 @@ class MyPaintCanvas(QWidget):
 
     def update_traffic(self):
         Simulator.getInstance().update()
-        inter_manager.update()
 
     def paintEvent(self, event): # 每次 disp_timer timeout 的时候调用，重绘
         qp = QPainter(self)
@@ -67,8 +65,8 @@ class MyPaintCanvas(QWidget):
         ts = Simulator.getInstance().timestep
         self.mainw.step_lbl.setText("Timestep: %4d" % ts)
         self.mainw.time_lbl.setText("Elapsed time: %.1f s" % (ts * veh_dt))
-        if ts == int(simu_t/veh_dt):
-            self.mainw.play_triggered()
+        if ts >= int(simu_t/veh_dt):
+            self.disp_timer.stop()
     
     def gen_draw_road(self):
         '''
