@@ -39,23 +39,42 @@ if __name__ == '__main__':
 
     # 调整流量
     total_flow = int(sys.argv[2])
-    l_flow = total_flow / 16
-    t_flow = total_flow / 8
-    r_flow = total_flow / 16
+    # # 均衡
+    # l_flow = total_flow / 16
+    # t_flow = total_flow / 8
+    # r_flow = total_flow / 16
+    # 不均衡
+    N_flow = total_flow / 9
+    S_flow = total_flow / 9 * 2
+    E_flow = total_flow / 9 * 2
+    W_flow = total_flow / 9 * 4
     lib.settings.veh_gen_rule_table = {
-        # 一车道均衡
-        'Nl': [l_flow], 
-        'Nt': [t_flow], 
-        'Nr': [r_flow], 
-        'Sl': [l_flow], 
-        'St': [t_flow], 
-        'Sr': [r_flow], 
-        'El': [l_flow], 
-        'Et': [t_flow], 
-        'Er': [r_flow], 
-        'Wl': [l_flow], 
-        'Wt': [t_flow], 
-        'Wr': [r_flow]
+        # # 一车道均衡
+        # 'Nl': [l_flow], 
+        # 'Nt': [t_flow], 
+        # 'Nr': [r_flow], 
+        # 'Sl': [l_flow], 
+        # 'St': [t_flow], 
+        # 'Sr': [r_flow], 
+        # 'El': [l_flow], 
+        # 'Et': [t_flow], 
+        # 'Er': [r_flow], 
+        # 'Wl': [l_flow], 
+        # 'Wt': [t_flow], 
+        # 'Wr': [r_flow]
+        # 一车道不均衡
+        'Nl': [N_flow/4], 
+        'Nt': [N_flow/2], 
+        'Nr': [N_flow/4], 
+        'Sl': [S_flow/4], 
+        'St': [S_flow/2], 
+        'Sr': [S_flow/4], 
+        'El': [E_flow/4], 
+        'Et': [E_flow/2], 
+        'Er': [E_flow/4], 
+        'Wl': [W_flow/4], 
+        'Wt': [W_flow/2], 
+        'Wr': [W_flow/4]
         # # 三车道
         # 'Nl': [l_flow, 0, 0], 
         # 'Nt': [0, t_flow, 0], 
@@ -68,9 +87,9 @@ if __name__ == '__main__':
         # 'Er': [0, 0, r_flow],
         # 'Wl': [l_flow, 0, 0], 
         # 'Wt': [0, t_flow, 0],
-        # 'Wr': [0, 0, r_flow],
+        # 'Wr': [0, 0, r_flow]
     }
-    print('## %d = 4 * (%d + %d + %d)' % (total_flow, l_flow,  t_flow, r_flow))
+    print('## %d = %d + %d + %d + %d' % (total_flow, N_flow,  S_flow, E_flow, W_flow))
     print(lib.settings.veh_gen_rule_table)
 
     exec_simulation()

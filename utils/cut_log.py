@@ -1,7 +1,7 @@
 import sys
 sys.path.append("../")
 
-fname = r'C:\ProjectsData\GraduateProject\my-intersection-simulator\log\3_10min\3lanes_banlanced\log 2019-05-25 17-09-25.log'
+fname = r'C:\ProjectsData\GraduateProject\my-intersection-simulator\log\log 2019-05-25 21-02-04.log'
 fr = open(fname, mode='r')
 fw = open(fname.split('.')[0] + '_cut.log', 'w')
 
