@@ -42,7 +42,7 @@ class TrafficLightManager(BaseInterManager):
                 else: 
                     message[ap_arm_dir] = 'R'
             ComSystem.I_broadcast(message)
-            print('Yellow light = [%s]' % str(self.phase[self.current_phase][1:]))
+            # print('Yellow light = [%s]' % str(self.phase[self.current_phase][1:]))
         else:
             for ap_arm_dir in ['Nl', 'Nt', 'Nr', 'Sl', 'St', 'Sr', 'El', 'Et', 'Er', 'Wl', 'Wt', 'Wr']:
                 if ap_arm_dir in self.phase[self.current_phase]:
@@ -50,7 +50,7 @@ class TrafficLightManager(BaseInterManager):
                 else: 
                     message[ap_arm_dir] = 'R'
             ComSystem.I_broadcast(message)
-            print('Green light = [%s]' % str(self.phase[self.current_phase][1:]))
+            # print('Green light = [%s]' % str(self.phase[self.current_phase][1:]))
         
     def receive_V2I(self, sender, message):
         return 

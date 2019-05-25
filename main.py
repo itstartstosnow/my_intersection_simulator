@@ -25,8 +25,20 @@ def exec_simulation():
     print('')
 
 if __name__ == '__main__':
-    total_flow = int(sys.argv[1])
+    # 调整方案
+    mode = sys.argv[1]
+    if mode == 'Dresner':
+        lib.settings.arm_len = 100
+        lib.settings.inter_control_mode = 'Dresner'
+    elif mode == 'Xu':
+        lib.settings.arm_len = 200
+        lib.settings.inter_control_mode = 'Xu'
+    else:
+        lib.settings.arm_len = 100
+        lib.settings.inter_control_mode = 'traffic light'
 
+    # 调整流量
+    total_flow = int(sys.argv[2])
     l_flow = total_flow / 16
     t_flow = total_flow / 8
     r_flow = total_flow / 16
@@ -46,8 +58,6 @@ if __name__ == '__main__':
     }
     print('## %d = 4 * (%d + %d + %d)' % (total_flow, l_flow,  t_flow, r_flow))
     print(lib.settings.veh_gen_rule_table)
-
-    lib.settings.simu_t = 20
 
     exec_simulation()
 

@@ -10,11 +10,15 @@ def cal_metrics(fname):
     reader = csv.reader(file)
 
     # 列分别是 start_time, ju_track_len, removed_time, is_removed
-    veh_info_table = - np.ones((500, 4))
+    veh_info_table = - np.ones((2000, 4))
     for i, row in enumerate(reader):
         if i == 0 or row[0].startswith('[') or row[0].startswith('p'):
             continue
+        if row[0].startswith('update_title_pos'):
+            break
         t, veh_id, zone, x = int(row[0]), int(row[1]), row[2].strip(), float(row[4])
+        if t >= simu_t / veh_dt:
+            break
         if zone == 'ap':
             if veh_info_table[veh_id, 0] == -1:
                 veh_info_table[veh_id, 0] = t
@@ -44,8 +48,8 @@ def cal_metrics(fname):
     # 理想通行时间，无视交叉口和其它车辆，匀速通过
     ideal_time = (arm_len * 2 + veh_info_table[:, 1]) / cf_param['v0']
     delay = actual_time - ideal_time
-    metrics['avg_delay = %.2f'] = np.mean(delay)
-    metrics['max_delay = %.2f'] = np.max(delay)
+    metrics['avg_delay'] = np.mean(delay)
+    metrics['max_delay'] = np.max(delay)
 
     plt.plot(delay)
     plt.xlabel('Vehicle Id')
@@ -99,11 +103,8 @@ def see_veh_avx(fname, id):
     plt.show()
 
 if __name__ == '__main__':
-    fname_seg = sys.argv[1: ]
-    fname = '../log/'
-    for e in fname_seg:
-        fname = fname + e + ' '
-    fname = fname[:-1] + '.log'
-    cal_metrics(fname)
-    # see_veh_avx(fname, 70)
+    metrics = cal_metrics('log/log 2019-05-25 17-09-25.log')
+    for key, value in metrics.items():
+        print(key, '=', value)
+    print('')
 
