@@ -3,7 +3,7 @@ import math
 
 from map import Map
 from simulator import Simulator
-from lib.settings import lane_width, turn_radius, arm_len, NS_lane_count, EW_lane_count, veh_dt, disp_dt, simu_t
+from lib.settings import lane_width, turn_radius, arm_len, NS_lane_count, EW_lane_count, veh_dt, disp_dt, simu_t, time_wrap
 
 from PyQt5.QtCore import Qt, QTimer, QPointF, QRectF, QLineF
 from PyQt5.QtGui import QPainter, QColor, QPen, QFont
@@ -18,7 +18,7 @@ class MyPaintCanvas(QWidget):
         self.disp_timer.start(disp_dt * 1000)
         self.disp_timer.timeout.connect(self.update)  # 每次 update 触发 paintEvent
         self.veh_timer = QTimer(self)
-        self.veh_timer.start(veh_dt * 1000)
+        self.veh_timer.start(veh_dt * 1000 / time_wrap)
         self.veh_timer.timeout.connect(self.update_traffic)
 
         self.lw = lane_width
@@ -65,8 +65,9 @@ class MyPaintCanvas(QWidget):
         ts = Simulator.getInstance().timestep
         self.mainw.step_lbl.setText("Timestep: %4d" % ts)
         self.mainw.time_lbl.setText("Elapsed time: %.1f s" % (ts * veh_dt))
-        if ts >= int(simu_t/veh_dt):
-            self.disp_timer.stop()
+        # print('ts = %d, simu_t/veh_dt = %d' % (ts, simu_t / veh_dt))
+        if ts >= simu_t / veh_dt:
+            self.mainw.close()
     
     def gen_draw_road(self):
         '''

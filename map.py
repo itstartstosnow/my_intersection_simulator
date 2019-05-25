@@ -1,5 +1,4 @@
 import math
-import logging
 
 from lib.settings import lane_width, turn_radius, arm_len, NS_lane_count, EW_lane_count, veh_gen_rule_table
 

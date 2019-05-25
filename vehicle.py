@@ -91,8 +91,17 @@ class HumanDrivenVehicle(BaseVehicle):
     def __init__(self, id, veh_param, cf_param, init_v, timestep):
         super().__init__(id, veh_param, cf_param, init_v, timestep)
         
-        # 控制信息
-        self.track.confirm_ex_lane(0)
+        # # 一条车道的情况
+        # self.track.confirm_ex_lane(0) # 暂时单出口道，就是 0 啦
+
+        # 3 条车道的情况
+        if veh_param['turn_dir'] == 'l':
+            self.track.confirm_ex_lane(0)
+        elif veh_param['turn_dir'] == 't':
+            self.track.confirm_ex_lane(1)
+        else:
+            self.track.confirm_ex_lane(2)
+
         self.traffic_light = None # control_order
 
         # 跟车参数的备份 
@@ -251,16 +260,16 @@ class XuVehicle(BaseVehicle):
         self.neighbor_list = None
         self.l_q_list = None
 
-        # 一条车道的情况
-        self.track.confirm_ex_lane(0) # 暂时单出口道，就是 0 啦
+        # # 一条车道的情况
+        # self.track.confirm_ex_lane(0) # 暂时单出口道，就是 0 啦
 
-        # # 3 条车道的情况
-        # if veh_param['turn_dir'] == 'l':
-        #     self.track.confirm_ex_lane(0)
-        # elif veh_param['turn_dir'] == 't':
-        #     self.track.confirm_ex_lane(1)
-        # else:
-        #     self.track.confirm_ex_lane(2)
+        # 3 条车道的情况
+        if veh_param['turn_dir'] == 'l':
+            self.track.confirm_ex_lane(0)
+        elif veh_param['turn_dir'] == 't':
+            self.track.confirm_ex_lane(1)
+        else:
+            self.track.confirm_ex_lane(2)
 
     def update_control(self, lead_veh):
         if self.depth and self.zone == 'ap':
@@ -289,8 +298,10 @@ class XuVehicle(BaseVehicle):
 
     def update_position(self, dt):
         if not self.reported:
-            ComSystem.V2I(self, {'type': 'appear'})
+            if self.track.turn_dir != 'r':
+                ComSystem.V2I(self, {'type': 'appear'})
             self.reported = True
+            
         if self.virtual_lead_x and self.zone == 'ap':
             self.virtual_lead_x += self.virtual_lead_v * dt
         return super().update_position(dt)
@@ -305,10 +316,10 @@ class XuVehicle(BaseVehicle):
 
     def receive_broadcast(self, message):
         if message['type'] == 'request report':
-            # 单车道，在 approach zone 才会报告
-            if self.inst_x < 0: 
+            # # 单车道，在 approach zone 才会报告
+            # if self.inst_x < 0: 
             # # 三车道，右转不报告
-            # if self.inst_x < 0 and self.track.turn_dir in 'lt':
+            if self.inst_x < 0 and self.track.turn_dir in 'lt':
                 ComSystem.V2I(self, {
                     'type': 'report', 
                     'veh_id': self._id,

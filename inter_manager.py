@@ -298,7 +298,6 @@ class DresnerManager(BaseInterManager):
                 return False
 
         self.res_grid.ex_lane_record[ex_arm + str(ex_lane)].append([message['veh_id'], occ_start, occ_end])
-        # logging.debug(str(self.res_grid.ex_lane_record[ex_arm + str(ex_lane)]))
         return True
     
 class DresnerResGrid:
@@ -504,7 +503,6 @@ class ComSystem:
 
     @staticmethod
     def I_broadcast(message):
-        # logging.debug(str(message))
         for group, vehs in simulator.Simulator.getInstance().all_veh.items():
             for veh in vehs:
                 veh.receive_broadcast(message)
