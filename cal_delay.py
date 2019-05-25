@@ -103,8 +103,30 @@ def see_veh_avx(fname, id):
     plt.show()
 
 if __name__ == '__main__':
-    metrics = cal_metrics('log/log 2019-05-25 17-09-25.log')
-    for key, value in metrics.items():
-        print(key, '=', value)
-    print('')
+
+    files = [
+        'log 2019-05-25 14-55-14.log', 
+        'log 2019-05-25 14-58-27.log', 
+        'log 2019-05-25 15-01-40.log', 
+        'log 2019-05-25 15-05-00.log', 
+        'log 2019-05-25 15-08-27.log', 
+        'log 2019-05-25 15-11-58.log', 
+        'log 2019-05-25 15-26-54.log', 
+        'log 2019-05-25 15-32-04.log', 
+        'log 2019-05-25 16-04-54.log', 
+        'log 2019-05-25 16-37-04.log', 
+        'log 2019-05-25 16-42-24.log', 
+        'log 2019-05-25 16-48-41.log', 
+        'log 2019-05-25 16-52-46.log', 
+        'log 2019-05-25 16-55-58.log', 
+        'log 2019-05-25 16-59-11.log', 
+        'log 2019-05-25 17-09-25.log'
+    ]
+
+    for file in files:
+        metrics = cal_metrics('log/3_10min/3lanes_banlanced/' + file)
+        print(file)
+        for key, value in metrics.items():
+            print(key, '=', value)
+        print('')
 

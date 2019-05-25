@@ -3,7 +3,7 @@ import logging
 
 from vehicle import Vehicle
 from inter_manager import inter_manager
-from lib.settings import arm_len, veh_dt, veh_param, cf_param, NS_lane_count, EW_lane_count, veh_gen_rule_table, min_gen_hs, gen_init_v, gen_init_x
+from lib.settings import arm_len, veh_dt, veh_param, cf_param, NS_lane_count, EW_lane_count, veh_gen_rule_table, min_gen_hs, gen_init_v
 
 import numpy as np
 
@@ -117,7 +117,7 @@ class Simulator:
                 if some_veh.inst_lane == lane:
                     latest_veh = some_veh
                     break
-            if not latest_veh or (latest_veh.inst_x - gen_init_x) > min_gen_hs:
+            if not latest_veh or (latest_veh.inst_x - (-arm_len)) > min_gen_hs:
                 if len(queue) > 0: 
                     new_veh = self.make_veh(ap_arm, lane, queue.pop())
                     self.all_veh[ap_arm + 'ap'].insert(0, new_veh)

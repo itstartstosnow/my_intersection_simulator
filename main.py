@@ -43,18 +43,32 @@ if __name__ == '__main__':
     t_flow = total_flow / 8
     r_flow = total_flow / 16
     lib.settings.veh_gen_rule_table = {
-        'Nl': [l_flow, 0, 0], 
-        'Nt': [0, t_flow, 0], 
-        'Nr': [0, 0, r_flow], 
-        'Sl': [l_flow, 0, 0], 
-        'St': [0, t_flow, 0],
-        'Sr': [0, 0, r_flow],
-        'El': [l_flow, 0, 0], 
-        'Et': [0, t_flow, 0],
-        'Er': [0, 0, r_flow],
-        'Wl': [l_flow, 0, 0], 
-        'Wt': [0, t_flow, 0],
-        'Wr': [0, 0, r_flow],
+        # 一车道均衡
+        'Nl': [l_flow], 
+        'Nt': [t_flow], 
+        'Nr': [r_flow], 
+        'Sl': [l_flow], 
+        'St': [t_flow], 
+        'Sr': [r_flow], 
+        'El': [l_flow], 
+        'Et': [t_flow], 
+        'Er': [r_flow], 
+        'Wl': [l_flow], 
+        'Wt': [t_flow], 
+        'Wr': [r_flow]
+        # # 三车道
+        # 'Nl': [l_flow, 0, 0], 
+        # 'Nt': [0, t_flow, 0], 
+        # 'Nr': [0, 0, r_flow], 
+        # 'Sl': [l_flow, 0, 0], 
+        # 'St': [0, t_flow, 0],
+        # 'Sr': [0, 0, r_flow],
+        # 'El': [l_flow, 0, 0], 
+        # 'Et': [0, t_flow, 0],
+        # 'Er': [0, 0, r_flow],
+        # 'Wl': [l_flow, 0, 0], 
+        # 'Wt': [0, t_flow, 0],
+        # 'Wr': [0, 0, r_flow],
     }
     print('## %d = 4 * (%d + %d + %d)' % (total_flow, l_flow,  t_flow, r_flow))
     print(lib.settings.veh_gen_rule_table)
