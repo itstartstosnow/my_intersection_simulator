@@ -87,21 +87,27 @@ kp = 0.15
 kv = 0.7
 
 conflict_movements = {
-    # 对于单车道的情况，同一进口道和出口道的都具有分流和合流冲突
-    # ['Nl', 'Nt', 'Nr', 'Sl', 'St', 'Sr', 'Wl', 'Wt', 'Wr', 'El', 'Et', 'Er']
-    'Nl': ['Nl', 'Nt', 'Nr', 'St', 'Sr', 'Wl', 'Wt', 'El', 'Et'],
-    'Nt': ['Nl', 'Nt', 'Nr', 'Sl', 'Wl', 'Wt', 'Wr', 'El', 'Et'],
-    'Nr': ['Nl', 'Nt', 'Nr', 'Sl', 'Et'],
-    'Sl': ['Nt', 'Nr', 'Sl', 'St', 'Sr', 'Wl', 'Wt', 'El', 'Et'],
-    'St': ['Nl', 'Sl', 'St', 'Sr', 'Wl', 'Wt', 'El', 'Et', 'Er'],
-    'Sr': ['Nl', 'Sl', 'St', 'Sr', 'Wt'],
-    'Wl': ['Nl', 'Nt', 'Sl', 'St', 'Wl', 'Wt', 'Wr', 'Et', 'Er'], 
-    'Wt': ['Nl', 'Nt', 'Sl', 'St', 'Sr', 'Wl', 'Wt', 'Wr', 'El'], 
-    'Wr': ['Nt', 'Wl', 'Wt', 'Wr', 'El'], 
-    'El': ['Nl', 'Nt', 'Sl', 'St', 'Wt', 'Wr', 'El', 'Et', 'Er'], 
-    'Et': ['Nl', 'Nt', 'Nr', 'Sl', 'St', 'Wl', 'El', 'Et', 'Er'], 
-    'Er': ['St', 'Wl', 'El', 'Et', 'Er']
+    'Nt': ['Nt', 'Wt', 'Et'],
+    'St': ['St', 'Wt', 'Et'], 
+    'Wt': ['Nt', 'St', 'Wt'], 
+    'Et': ['Nt', 'St', 'Et']
 }
+# conflict_movements = {
+#     # 对于单车道的情况，同一进口道和出口道的都具有分流和合流冲突
+#     # ['Nl', 'Nt', 'Nr', 'Sl', 'St', 'Sr', 'Wl', 'Wt', 'Wr', 'El', 'Et', 'Er']
+#     'Nl': ['Nl', 'Nt', 'Nr', 'St', 'Sr', 'Wl', 'Wt', 'El', 'Et'],
+#     'Nt': ['Nl', 'Nt', 'Nr', 'Sl', 'Wl', 'Wt', 'Wr', 'El', 'Et'],
+#     'Nr': ['Nl', 'Nt', 'Nr', 'Sl', 'Et'],
+#     'Sl': ['Nt', 'Nr', 'Sl', 'St', 'Sr', 'Wl', 'Wt', 'El', 'Et'],
+#     'St': ['Nl', 'Sl', 'St', 'Sr', 'Wl', 'Wt', 'El', 'Et', 'Er'],
+#     'Sr': ['Nl', 'Sl', 'St', 'Sr', 'Wt'],
+#     'Wl': ['Nl', 'Nt', 'Sl', 'St', 'Wl', 'Wt', 'Wr', 'Et', 'Er'], 
+#     'Wt': ['Nl', 'Nt', 'Sl', 'St', 'Sr', 'Wl', 'Wt', 'Wr', 'El'], 
+#     'Wr': ['Nt', 'Wl', 'Wt', 'Wr', 'El'], 
+#     'El': ['Nl', 'Nt', 'Sl', 'St', 'Wt', 'Wr', 'El', 'Et', 'Er'], 
+#     'Et': ['Nl', 'Nt', 'Nr', 'Sl', 'St', 'Wl', 'El', 'Et', 'Er'], 
+#     'Er': ['St', 'Wl', 'El', 'Et', 'Er']
+# }
 # conflict_movements = {
 #     # 对于三车道，不存在分流和合流冲突了
 #     # ['Nl', 'Nt', 'Nr', 'Wl', 'Wt', 'Wr', 'Sl', 'St', 'Sr', 'El', 'Et', 'Er']
