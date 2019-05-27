@@ -19,6 +19,20 @@ import matplotlib.pyplot as plt
 # max_delay_dres = np.array([7.01, 13.62, 21.84, 51.5, 77.6, 94.56])
 
 
+# # 单进口道仅直行
+# inflow_light = np.array([720, 1440, 2160, 2880, 3600])
+# outflow_light = np.array([595, 1403, 2071, 2769, 3014])
+# avg_delay_light = np.array([15.33, 14.76, 17.33, 27.45, 35.56])
+
+# inflow_xu = np.array([720, 1440, 2160, 2880, 3600]) # , 4320])
+# outflow_xu = np.array([693, 1346, 1933, 2000, 2156]) # , 2572])
+# avg_delay_xu = np.array([3.35, 5.36, 7.32, 40.57, 54.33]) # , 54.56])
+
+# inflow_dres = np.array([720, 1440, 2160, 2880, 3600]) # , 4320])
+# outflow_dres = np.array([792, 1608, 2090, 2829, 3353]) # , 2593])
+# avg_delay_dres = np.array([1.77, 2.44, 2.82, 4.39, 13.79]) # , 44.02])
+
+
 # # 单进口道不均衡
 # inflow_light = np.array([720, 1440, 2160, 2880, 3600])
 # outflow_light = np.array([732, 1115, 948, 790, 723])
