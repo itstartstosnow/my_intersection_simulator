@@ -4,9 +4,8 @@ import matplotlib.pyplot as plt
 
 # 单进口道均衡
 # inflow_light = np.array([720, 1440, 2160, 2880, 3600, 4320])
-# outflow_light = np.array([782, 1177, 1360, 1364, 1365, 1376])
-# avg_delay_light = np.array([31.71, 54.41, 84.97, 94.76, 92.93, 95.58])
-# max_delay_light = np.array([66.34, 132.67, 132.85, 132.85, 132.95, 132.85])
+# outflow_light = np.array([749, 1189, 1440, 1560, 1494, 1541])
+# avg_delay_light = np.array([21.20, 52.33, 82.14, 86.8, 87.3])
 
 # inflow_xu = np.array([720, 1440, 2160, 2880, 3600, 4320])
 # outflow_xu = np.array([532, 1423, 1921, 2053, 2061, 1962])
@@ -21,8 +20,8 @@ import matplotlib.pyplot as plt
 
 # # 单进口道仅直行
 # inflow_light = np.array([720, 1440, 2160, 2880, 3600])
-# outflow_light = np.array([595, 1403, 2071, 2769, 3014])
-# avg_delay_light = np.array([15.33, 14.76, 17.33, 27.45, 35.56])
+# outflow_light = np.array([687, 1426, 2076, 2570, 2845])
+# avg_delay_light = np.array([7.42, 10.7, 14.67, 27.9, 34.71])
 
 # inflow_xu = np.array([720, 1440, 2160, 2880, 3600]) # , 4320])
 # outflow_xu = np.array([693, 1346, 1933, 2000, 2156]) # , 2572])
@@ -35,9 +34,8 @@ import matplotlib.pyplot as plt
 
 # # 单进口道不均衡
 # inflow_light = np.array([720, 1440, 2160, 2880, 3600])
-# outflow_light = np.array([732, 1115, 948, 790, 723])
-# avg_delay_light = np.array([26.61, 46.2, 73.88, 86.46, 89.4])
-# max_delay_light = np.array([72.15, 118.45, 259.07, 298.125, 384.87])
+# outflow_light = np.array([640, 1087, 1250, 990, 938])
+# avg_delay_light = np.array([22.07, 41.97, 75.77, 76.51, 82.11])
 
 # inflow_xu = np.array([720, 1440, 2160, 2880, 3600])
 # outflow_xu = np.array([734, 1373, 2090, 1832, 1865])

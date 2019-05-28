@@ -39,7 +39,7 @@ def cal_metrics(fname):
     # 计算实际通行能力（从第一辆车离开到最后一辆车离开交叉口时间内的流量）
     veh_finish_count = np.sum(veh_info_table[:, 3]) # 完成全程的车辆数
     earlist_finish_time = np.min(veh_info_table[:, 2]) # 最早完成全程的时间
-    actual_total_flow = veh_finish_count / (simu_t - earlist_finish_time * veh_dt) * 3600
+    actual_total_flow = veh_finish_count / ((t - earlist_finish_time) * veh_dt) * 3600
     metrics['actual_total_flow'] = actual_total_flow
 
     # 计算延误
@@ -105,26 +105,11 @@ def see_veh_avx(fname, id):
 if __name__ == '__main__':
 
     files = [
-        'log 2019-05-25 14-55-14.log', 
-        'log 2019-05-25 14-58-27.log', 
-        'log 2019-05-25 15-01-40.log', 
-        'log 2019-05-25 15-05-00.log', 
-        'log 2019-05-25 15-08-27.log', 
-        'log 2019-05-25 15-11-58.log', 
-        'log 2019-05-25 15-26-54.log', 
-        'log 2019-05-25 15-32-04.log', 
-        'log 2019-05-25 16-04-54.log', 
-        'log 2019-05-25 16-37-04.log', 
-        'log 2019-05-25 16-42-24.log', 
-        'log 2019-05-25 16-48-41.log', 
-        'log 2019-05-25 16-52-46.log', 
-        'log 2019-05-25 16-55-58.log', 
-        'log 2019-05-25 16-59-11.log', 
-        'log 2019-05-25 17-09-25.log'
+        'log 2019-05-28 10-56-52.log'
     ]
 
     for file in files:
-        metrics = cal_metrics('log/3_10min/3lanes_banlanced/' + file)
+        metrics = cal_metrics('log/' + file)
         print(file)
         for key, value in metrics.items():
             print(key, '=', value)
