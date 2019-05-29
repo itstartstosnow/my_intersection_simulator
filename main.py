@@ -39,12 +39,12 @@ if __name__ == '__main__':
 
     # 调整流量
     total_flow = int(sys.argv[2])
-    # 一车道只直
-    t_flow = total_flow / 4
-    # # 均衡
-    # l_flow = total_flow / 16
-    # t_flow = total_flow / 8
-    # r_flow = total_flow / 16
+    # # 一车道只直
+    # t_flow = total_flow / 4
+    # 均衡
+    l_flow = total_flow / 16
+    t_flow = total_flow / 8
+    r_flow = total_flow / 16
     # # 不均衡
     # N_flow = total_flow / 9
     # S_flow = total_flow / 9 * 2
@@ -52,21 +52,21 @@ if __name__ == '__main__':
     # W_flow = total_flow / 9 * 4
 
     lib.settings.veh_gen_rule_table = {
-        # 一车道只直
-        'Nl': [0], 
-        'Nt': [t_flow], 
-        'Nr': [0], 
-        'Sl': [0], 
-        'St': [t_flow], 
-        'Sr': [0], 
-        'El': [0], 
-        'Et': [t_flow], 
-        'Er': [0], 
-        'Wl': [0], 
-        'Wt': [t_flow], 
-        'Wr': [0]
+        # 三车道均衡
+        'Nl': [l_flow, 0, 0], 
+        'Nt': [0, t_flow, 0], 
+        'Nr': [0, 0, r_flow], 
+        'Sl': [l_flow, 0, 0], 
+        'St': [0, t_flow, 0], 
+        'Sr': [0, 0, r_flow], 
+        'El': [l_flow, 0, 0], 
+        'Et': [0, t_flow, 0], 
+        'Er': [0, 0, r_flow], 
+        'Wl': [l_flow, 0, 0], 
+        'Wt': [0, t_flow, 0], 
+        'Wr': [0, 0, r_flow]
     }
-    print('## %d = 4 * %d' % (total_flow, t_flow))
+    print('## %d = 4 * (%d + %d + %d)' % (total_flow, l_flow, t_flow, r_flow))
     print(lib.settings.veh_gen_rule_table)
 
     exec_simulation()
