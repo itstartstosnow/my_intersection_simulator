@@ -97,6 +97,17 @@
 + acc_from_model(v, s, v_l): float
 ```
 
+# HumanDrivenVehicle
+```
++ traffic_light: string
++ cf_v0_backup: float
++ cf_T_backup: float
+
++ update_control(lead_veh)
++ update_position(dt): bool
++ receive_broadcast(self, message)
+```
+
 # DresnerVehicle
 ```
 + reservation: dict
@@ -126,6 +137,14 @@
 + receive_broadcast(message)
 ```
 
+# ComSystem
+```
++ V2V(receiver, sender, message)
++ V2I(sender, message)
++ I2V(receiver, message)
++ I_broadcast(message)
+```
+
 # Simulator
 ```
 + timestep: int
@@ -144,12 +163,22 @@
 ```
 
 
-# BaseManager
+# BaseInterManager
 ```
 + timestep: int
 
 + update()
 + receive_V2I(sender, message)
+```
+
+# TrafficLightManager
+```
++ current_phase: int 
++ current_elapsed_time: int
++ phase: list
+
++ update()
++ update_phase()
 ```
  
 # DresnerManager
@@ -199,3 +228,5 @@
 + dispose_passed_time(timestep)
 ```
 
+# 注
+Comsystem的地方比较乱
